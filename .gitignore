@@ -1,15 +1,17 @@
 /target/
+/site/.next/
+/site/out/
+/site/node_modules/
+/site/public/generated/
+/node_modules/
+.vercel/
 /.cargo-cache/
-/.venv/
+**/.venv/
 **/__pycache__/
 *.py[cod]
 /.pytest_cache/
-/node_modules/
-/site/.next/
-/site/out/
 /site/playwright-report/
 /site/test-results/
-/.vercel/
 
 # Corpora, normalized telemetry, archives, spills, and local benchmark work.
 /data/
@@ -22,6 +24,6 @@
 # Results are ignored by default; the curated publication snapshot is force-added.
 /results/raw-work/
 *.profraw
+*.tsbuildinfo
 *.log
 .DS_Store
-

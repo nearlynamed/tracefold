@@ -1,0 +1,14 @@
+{
+  "name": "tracefold-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "site:dev": "pnpm --dir site dev",
+    "site:build": "pnpm --dir site build",
+    "site:check": "pnpm --dir site check",
+    "site:test": "pnpm --dir site test"
+  }
+}

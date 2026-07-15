@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.96.0
+          components: rustfmt, clippy
+      - uses: astral-sh/setup-uv@v7
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build --release --locked
+        env:
+          TRACEFOLD_GIT_COMMIT: ${{ github.sha }}
+      - run: uv sync --project scripts/report --locked
+      - run: uv run --project scripts/report python -m unittest discover -s scripts/report/tests
+      - run: target/release/tracefold bench smoke --output /tmp/tracefold-smoke.jsonl
+      - run: uv run --project scripts/report tracefold-report --input /tmp/tracefold-smoke.jsonl --output /tmp/tracefold-report
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir site check
+      - run: pnpm --dir site test
+      - run: pnpm --dir site build
+
+  browser:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 11.11.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir site exec playwright install --with-deps chromium
+      - run: pnpm --dir site test:e2e

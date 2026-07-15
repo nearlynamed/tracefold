@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">TraceFold</title>
+  <desc id="desc">Event traces converge into a compact stack of aggregate blocks.</desc>
+  <rect width="1200" height="630" fill="#17231d"/>
+  <g fill="none" stroke="#e9e3d5" stroke-width="3" opacity=".65">
+    <path d="M80 90 C300 90 270 315 520 315"/><path d="M80 170 C330 170 260 315 520 315"/>
+    <path d="M80 250 C360 250 280 315 520 315"/><path d="M80 330 C350 330 300 315 520 315"/>
+    <path d="M80 410 C320 410 280 315 520 315"/><path d="M80 490 C300 490 270 315 520 315"/>
+  </g>
+  <g fill="#d64b2a"><circle cx="80" cy="90" r="9"/><circle cx="80" cy="170" r="9"/><circle cx="80" cy="250" r="9"/><circle cx="80" cy="330" r="9"/><circle cx="80" cy="410" r="9"/><circle cx="80" cy="490" r="9"/></g>
+  <path d="M520 315h150" stroke="#d64b2a" stroke-width="9"/>
+  <g transform="translate(670 154)">
+    <rect width="420" height="322" rx="2" fill="#f4f0e6"/>
+    <rect x="34" y="34" width="352" height="54" fill="#d64b2a"/>
+    <rect x="34" y="108" width="352" height="54" fill="#365c49"/>
+    <rect x="34" y="182" width="352" height="54" fill="#365c49"/>
+    <rect x="34" y="256" width="220" height="32" fill="#d8cfc0"/>
+  </g>
+  <text x="76" y="575" fill="#f4f0e6" font-family="ui-monospace,monospace" font-size="30" letter-spacing="5">TRACEFOLD / QUERY-PRESERVING ARCHIVES</text>
+</svg>

@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this executable research artifact, please cite it as below."
+title: "TraceFold: Query-Preserving Compression for Tiered Telemetry Archives"
+type: software
+authors:
+  - name: nearlynamed
+repository-code: "https://github.com/nearlynamed/tracefold"
+url: "https://tracefold.vercel.app"
+license: "Apache-2.0 OR MIT"
+version: 0.1.0
+date-released: 2026-07-15

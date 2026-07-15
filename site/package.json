@@ -1,0 +1,35 @@
+{
+  "name": "tracefold-site",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "node scripts/sync-results.mjs && next dev",
+    "prebuild": "node scripts/sync-results.mjs",
+    "build": "next build",
+    "check": "tsc --noEmit && eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "geist": "1.7.0",
+    "next": "16.2.10",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.2",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.10.9",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.2",
+    "eslint": "9.39.2",
+    "eslint-config-next": "16.2.10",
+    "jsdom": "27.4.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  }
+}

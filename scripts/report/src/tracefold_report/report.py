@@ -65,6 +65,21 @@ def build(loaded: LoadedRows, output: Path) -> dict[str, Any]:
         "datasets": sorted({row["dataset"] for row in rows}),
         "baselines": sorted({row["baseline"] for row in rows}),
         "max_source_bytes": max(row["size_limit_bytes"] for row in rows),
+        "largest_observed_source_bytes": max(
+            (row.get("source_bytes") or 0) for row in rows
+        ),
+        "largest_normalized_bytes": max(
+            (row.get("normalized_bytes") or 0) for row in rows
+        ),
+        "semantic_mismatch_count": sum(
+            row.get("semantic_mismatch_count", 0) for row in rows
+        ),
+        "legal_queries_per_archive": max(
+            (row.get("query_count", 0) for row in rows), default=0
+        ),
+        "illegal_queries_per_archive": max(
+            (row.get("explicit_rejection_count", 0) for row in rows), default=0
+        ),
         "table": table,
         "failures": failures,
         "charts": charts,
@@ -142,6 +157,18 @@ def _write_markdown(output: Path, summary: dict[str, Any], publication: dict[str
         lines.append("No failures were recorded in this result set.")
     (output / "summary.md").write_text("\n".join(lines) + "\n")
 
+    result_lines = [
+        "| Dataset | Baseline | Archive bytes | Compression | Encode (ms) | Query batch (ms) |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for row in summary["table"]:
+        encode_ms = _milliseconds(row["encode_wall_ns_median"])
+        query_ms = _milliseconds(row["query_wall_ns_median"])
+        compression = _decimal(row["compression_ratio_median"])
+        result_lines.append(
+            f"| {row['dataset']} | {row['baseline']} | {int(row['archive_bytes_median']):,} | {compression}× | {encode_ms} | {query_ms} |"
+        )
+    observations = _observations(summary["table"])
     paper = f"""# TraceFold: Query-Preserving Compression for Tiered Telemetry Archives
 
 **nearlynamed**  
@@ -165,19 +192,23 @@ The artifact measures storage, query latency, semantic knobs, workload shape, cu
 
 ## Dataset and workload methodology
 
-All source artifacts are capped at {summary['max_source_bytes']} bytes under the declared downloaded/generated-source basis. Synthetic data is seeded; public data comes from Loghub. Benchmark queries are created after archive finalization.
+All source artifacts are capped at {summary['max_source_bytes']:,} bytes under the declared downloaded/generated-source basis. The largest observed download/generated source was {summary['largest_observed_source_bytes']:,} bytes; its canonical normalization expanded to {summary['largest_normalized_bytes']:,} bytes. Synthetic data is seeded; public data comes from Loghub. Each archive is finalized before its {summary['legal_queries_per_archive']} legal and {summary['illegal_queries_per_archive']} illegal queries are generated.
 
 ## Results
 
-The current publication contains {summary['attempts']} attempts: {summary['successful_attempts']} successful and {summary['failed_attempts']} failed. See `summary.md` and the generated figures for the complete per-corpus results.
+The current publication contains {summary['attempts']} baseline attempts: {summary['successful_attempts']} successful and {summary['failed_attempts']} failed, with {summary['semantic_mismatch_count']} semantic mismatches. Table 1 is generated directly from the immutable raw result rows.
+
+{chr(10).join(result_lines)}
+
+{observations}
 
 ## Threats to validity
 
-Synthetic distributions, author-selected query families, Loghub's age and shape, bucket semantics, normalization quality, different query engines, page-cache effects, and a single WSL2 host all limit generalization. Materialized views may explain more benefit than the custom codec.
+Synthetic distributions, author-selected query families, Loghub's age and shape, bucket semantics, normalization quality, different query engines, page-cache effects, and a single WSL2 host all limit generalization. Materialized views may explain more benefit than the custom codec. The checked-in snapshot contains one measured attempt per corpus/baseline, so its timing values characterize this run rather than a stable population estimate.
 
 ## Limitations
 
-TraceFold v1 does not support arbitrary SQL, joins, regex predicates, quantiles, distinct counts, streaming ingestion, or reconstruction of old successful payloads.
+TraceFold v1 does not support arbitrary SQL, joins, regex predicates, quantiles, distinct counts, streaming ingestion, or reconstruction of old successful payloads. Peak RSS is not measured in this snapshot, and the retention, bucket-width, scale/cardinality, error-rate, format-level, and seed-sensitivity frontiers specified as E2–E7 remain future benchmark stages. The report therefore makes no claim about the 10-million-event memory target.
 
 ## Related work
 
@@ -193,3 +224,36 @@ Conclusions must be limited to the generated measurements. Failures and regressi
 """
     (output / "paper.md").write_text(paper)
 
+
+def _milliseconds(value: float | None) -> str:
+    return "—" if value is None else f"{value / 1_000_000:.2f}"
+
+
+def _decimal(value: float | None) -> str:
+    return "—" if value is None else f"{value:.2f}"
+
+
+def _observations(table: list[dict[str, Any]]) -> str:
+    indexed = {(row["dataset"], row["baseline"]): row for row in table}
+    lines = []
+    for dataset in sorted({row["dataset"] for row in table}):
+        tracefold = indexed.get((dataset, "tracefold-separate-zstd3"))
+        semantic = indexed.get((dataset, "views-parquet-zstd"))
+        raw_parquet = indexed.get((dataset, "parquet-raw-zstd"))
+        if tracefold and semantic:
+            delta = (
+                tracefold["archive_bytes_median"] / semantic["archive_bytes_median"] - 1
+            ) * 100
+            relation = "larger" if delta >= 0 else "smaller"
+            lines.append(
+                f"- On `{dataset}`, TraceFold was {abs(delta):.1f}% {relation} than the view-equivalent semantic Parquet archive."
+            )
+        if tracefold and raw_parquet:
+            delta = (
+                tracefold["archive_bytes_median"] / raw_parquet["archive_bytes_median"] - 1
+            ) * 100
+            relation = "larger" if delta >= 0 else "smaller"
+            lines.append(
+                f"- Relative to raw Parquet on `{dataset}`, TraceFold was {abs(delta):.1f}% {relation}; this comparison combines the semantic tradeoff with the storage format."
+            )
+    return "\n".join(lines)

@@ -11,7 +11,7 @@ source_url = "https://zenodo.org/api/records/8196385/files/Zookeeper.tar.gz/cont
 archive_type = "tar_gz"
 inner_path = "Zookeeper.log"
 expected_source_bytes = 459911
-expected_raw_bytes = 10433331
+expected_raw_bytes = 10426438
 sha256 = "ea350b0d3ff22bca4764ae4a1521bd1b79c448db4ee99aac02fd82b9a0995f19"
 
 [[corpora]]

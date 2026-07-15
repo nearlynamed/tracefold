@@ -1,0 +1,17 @@
+version = 1
+max_source_bytes = 1073741824
+
+# Source URLs and hashes are intentionally locked by `tracefold bench fetch lock`
+# before a publish run. Raw Loghub data is not redistributed.
+[[corpora]]
+name = "loghub-zookeeper"
+catalog_url = "https://github.com/logpai/loghub/tree/master/Zookeeper"
+citation_url = "https://doi.org/10.1109/ISSRE59848.2023.00071"
+expected_raw_bytes = 10433331
+
+[[corpora]]
+name = "loghub-bgl"
+catalog_url = "https://github.com/logpai/loghub/tree/master/BGL"
+citation_url = "https://doi.org/10.1109/ISSRE59848.2023.00071"
+expected_raw_bytes = 743188725
+

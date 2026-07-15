@@ -1,0 +1,46 @@
+version = 1
+name = "telemetry-v1"
+time_bucket = "1m"
+
+[retention]
+recent = "24h"
+error_severities = ["ERROR", "FATAL"]
+error_statuses = ["ERROR"]
+
+[[families]]
+name = "event-volume"
+dimensions = ["service", "event_type", "severity", "status"]
+measures = [{ field = "*", op = "count" }]
+
+[[families]]
+name = "latency"
+dimensions = ["service", "operation", "status"]
+measures = [
+  { field = "duration_ns", op = "count_present" },
+  { field = "duration_ns", op = "sum" },
+  { field = "duration_ns", op = "min" },
+  { field = "duration_ns", op = "max" },
+  { field = "duration_ns", op = "histogram", bounds = [1000000, 5000000, 10000000, 50000000, 100000000, 500000000, 1000000000] },
+]
+
+[[families]]
+name = "traffic"
+dimensions = ["service", "operation", "status"]
+measures = [
+  { field = "bytes_in", op = "sum" },
+  { field = "bytes_out", op = "sum" },
+]
+
+[[families]]
+name = "model-usage"
+dimensions = ["service", "operation", "model", "status"]
+measures = [
+  { field = "tokens_in", op = "sum" },
+  { field = "tokens_out", op = "sum" },
+]
+
+[[families]]
+name = "error-volume"
+dimensions = ["service", "operation", "error_code", "severity"]
+measures = [{ field = "*", op = "count" }]
+

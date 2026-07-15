@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.tfv binary
+*.zst binary
+*.gz binary
+*.png binary
+

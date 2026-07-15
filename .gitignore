@@ -1,0 +1,27 @@
+/target/
+/.cargo-cache/
+/.venv/
+**/__pycache__/
+*.py[cod]
+/.pytest_cache/
+/node_modules/
+/site/.next/
+/site/out/
+/site/playwright-report/
+/site/test-results/
+/.vercel/
+
+# Corpora, normalized telemetry, archives, spills, and local benchmark work.
+/data/
+/artifacts/
+/tmp/
+*.tfold/
+*.tfold.tmp-*/
+*.spill
+
+# Results are ignored by default; the curated publication snapshot is force-added.
+/results/raw-work/
+*.profraw
+*.log
+.DS_Store
+

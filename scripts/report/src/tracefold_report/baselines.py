@@ -372,6 +372,29 @@ def _directory_hash(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _ensure_contract_columns(
+    connection: duckdb.DuckDBPyConnection, contract: dict[str, Any]
+) -> None:
+    existing = {
+        row[1] for row in connection.execute("PRAGMA table_info('events')").fetchall()
+    }
+    dimensions = {
+        dimension
+        for family in contract["families"]
+        for dimension in family["dimensions"]
+    }
+    measures = {
+        measure["field"]
+        for family in contract["families"]
+        for measure in family["measures"]
+        if measure["field"] != "*"
+    }
+    for column in sorted(dimensions - existing):
+        connection.execute(f"ALTER TABLE events ADD COLUMN {_identifier(column)} VARCHAR")
+    for column in sorted(measures - existing):
+        connection.execute(f"ALTER TABLE events ADD COLUMN {_identifier(column)} BIGINT")
+
+
 def _row(
     template: dict[str, Any],
     baseline: str,
@@ -451,6 +474,7 @@ def build_baselines(
         "CREATE TABLE events AS SELECT * FROM read_json_auto(?, format='newline_delimited', maximum_object_size=16777216)",
         [str(input_path)],
     )
+    _ensure_contract_columns(connection, contract)
     connection.execute("CHECKPOINT")
     duck_encode_ns = time.perf_counter_ns() - duck_started
 

@@ -17,6 +17,8 @@ def _finish(fig: plt.Figure, path: Path) -> None:
     fig.tight_layout()
     fig.savefig(path, format="svg", metadata={"Date": None})
     plt.close(fig)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    path.write_text("\n".join(line.rstrip() for line in lines) + "\n", encoding="utf-8")
 
 
 def _empty(path: Path, title: str, message: str = "No successful measurements") -> None:

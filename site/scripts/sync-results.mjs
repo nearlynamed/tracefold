@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,6 +19,12 @@ if (publication.schema_version !== 1 || publication.byline !== "nearlynamed") {
 for (const artifact of publication.raw_results ?? []) {
   if (!artifact.path || !artifact.sha256) {
     throw new Error("every published raw artifact needs a path and SHA-256 digest");
+  }
+
+  const contents = await readFile(path.join(source, artifact.path));
+  const digest = createHash("sha256").update(contents).digest("hex");
+  if (digest !== artifact.sha256) {
+    throw new Error(`SHA-256 mismatch for ${artifact.path}`);
   }
 }
 

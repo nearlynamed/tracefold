@@ -1,0 +1,17 @@
+.git
+.vercel
+target
+data
+artifacts
+node_modules
+site/node_modules
+site/.next
+site/out
+site/public/generated
+site/test-results
+site/playwright-report
+scripts/report/.venv
+results/raw-work
+**/__pycache__
+*.profraw
+*.tsbuildinfo

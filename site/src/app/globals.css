@@ -116,16 +116,28 @@ a:hover { color: var(--signal-dark); }
 .section-heading h2 { margin: 0; font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -0.055em; }
 .dataset-picker { display: grid; gap: 0.35rem; font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; }
 .dataset-picker select { min-width: 190px; padding: 0.65rem; color: inherit; border: 1px solid #718078; background: #243129; font: inherit; text-transform: none; }
+.result-legend { display: flex; flex-wrap: wrap; gap: 0.7rem 1.5rem; margin: -1.4rem 0 2rem; color: #b9c5bd; font-family: var(--mono); font-size: 0.72rem; }
+.result-legend > span { display: inline-flex; align-items: center; gap: 0.5rem; }
+.result-legend b { padding: 0.1rem 0.35rem; color: #fff4ef; background: var(--signal); font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.legend-swatch { display: inline-block; width: 22px; height: 10px; border: 1px solid transparent; }
+.tracefold-swatch { border-color: #ff9a80; background: repeating-linear-gradient(135deg, #ef6544 0 4px, #a93620 4px 7px); }
+.baseline-swatch { background: #66756c; }
 .bars { display: grid; gap: 1rem; padding-bottom: 3rem; }
 .bar-row { display: grid; grid-template-columns: 130px 1fr minmax(100px, auto); align-items: center; gap: 1rem; font-family: var(--mono); font-size: 0.78rem; }
+.bar-row.is-tracefold { margin-inline: -0.8rem; padding: 0.65rem 0.8rem; border: 1px solid rgba(239, 101, 68, 0.72); background: rgba(214, 75, 42, 0.12); }
+.bar-label { overflow-wrap: anywhere; }
+.ours-badge { display: inline-block; margin-left: 0.35rem; padding: 0.08rem 0.3rem; color: #fff4ef; background: var(--signal); font-family: var(--mono); font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; vertical-align: 0.1em; }
 .bar-track { height: 18px; background: #2f3e35; }
-.bar-fill { height: 100%; background: linear-gradient(90deg, #d64b2a, #ec8a66); }
-.bar-row strong { text-align: right; font-weight: 500; }
+.bar-fill { height: 100%; background: #66756c; }
+.bar-row.is-tracefold .bar-fill { border-right: 2px solid #ffd0c4; background: repeating-linear-gradient(135deg, #ef6544 0 7px, #b63c22 7px 11px); box-shadow: 0 0 18px rgba(239, 101, 68, 0.34); }
+.bar-value { text-align: right; font-weight: 500; }
 .table-scroll { overflow-x: auto; }
 .result-explorer table { width: 100%; border-collapse: collapse; text-align: right; font-family: var(--mono); font-size: 0.77rem; }
 .result-explorer caption { padding-bottom: 0.8rem; text-align: left; color: #aab5ad; }
 .result-explorer th, .result-explorer td { padding: 0.8rem 0.65rem; border-top: 1px solid #46544c; white-space: nowrap; }
 .result-explorer th:first-child, .result-explorer td:first-child { text-align: left; }
+.result-explorer tr.is-tracefold { color: #fff5f1; background: rgba(214, 75, 42, 0.15); box-shadow: inset 3px 0 var(--signal); }
+.result-explorer tr.is-tracefold th, .result-explorer tr.is-tracefold td { border-top-color: rgba(239, 101, 68, 0.75); border-bottom: 1px solid rgba(239, 101, 68, 0.75); font-weight: 650; }
 .empty-state { color: #aab5ad; }
 
 .limitations { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; margin-block: 2rem 8rem; padding-top: 3rem; border-top: 1px solid var(--line); }

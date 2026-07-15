@@ -8,8 +8,23 @@ import matplotlib
 
 matplotlib.use("svg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 matplotlib.rcParams["svg.hashsalt"] = "tracefold-v1"
+
+TRACEFOLD_BASELINE = "tracefold-separate-zstd3"
+TRACEFOLD_COLOR = "#d64b2a"
+TRACEFOLD_EDGE = "#8f2c18"
+BASELINE_COLOR = "#829087"
+
+
+def _is_tracefold(row: dict[str, Any]) -> bool:
+    return row.get("baseline") == TRACEFOLD_BASELINE
+
+
+def _baseline_label(row: dict[str, Any]) -> str:
+    return "TraceFold · ours" if _is_tracefold(row) else str(row["baseline"])
 
 
 def _finish(fig: plt.Figure, path: Path) -> None:
@@ -33,14 +48,41 @@ def bars(rows: list[dict[str, Any]], path: Path, title: str, field: str) -> None
     usable = [row for row in rows if row.get("success") and row.get(field) is not None]
     if not usable:
         return _empty(path, title)
-    labels = [f"{row['dataset']}\n{row['baseline']}" for row in usable]
+    labels = [f"{row['dataset']}\n{_baseline_label(row)}" for row in usable]
     values = [float(row[field]) for row in usable]
     fig, axis = plt.subplots(figsize=(max(8, len(labels) * 0.72), 5))
-    axis.bar(range(len(values)), values, color="#246bce")
+    plotted = axis.bar(
+        range(len(values)),
+        values,
+        color=[TRACEFOLD_COLOR if _is_tracefold(row) else BASELINE_COLOR for row in usable],
+    )
+    for patch, row in zip(plotted.patches, usable, strict=True):
+        if _is_tracefold(row):
+            patch.set_edgecolor(TRACEFOLD_EDGE)
+            patch.set_linewidth(1.5)
+            patch.set_hatch("///")
+            patch.set_zorder(3)
     axis.set_title(title)
     axis.set_xticks(range(len(labels)), labels, rotation=45, ha="right", fontsize=8)
+    for tick, row in zip(axis.get_xticklabels(), usable, strict=True):
+        if _is_tracefold(row):
+            tick.set_color(TRACEFOLD_EDGE)
+            tick.set_fontweight("bold")
     axis.set_ylabel(field.replace("_", " "))
     axis.grid(axis="y", alpha=0.2)
+    if any(_is_tracefold(row) for row in usable):
+        axis.legend(
+            handles=[
+                Patch(
+                    facecolor=TRACEFOLD_COLOR,
+                    edgecolor=TRACEFOLD_EDGE,
+                    hatch="///",
+                    label="TraceFold · ours",
+                ),
+                Patch(facecolor=BASELINE_COLOR, label="Comparison baselines"),
+            ],
+            frameon=False,
+        )
     _finish(fig, path)
 
 
@@ -55,13 +97,64 @@ def scatter(rows: list[dict[str, Any]], path: Path) -> None:
     if not usable:
         return _empty(path, "Storage–query latency frontier")
     fig, axis = plt.subplots(figsize=(8, 5))
+    tracefold_index = 0
     for row in usable:
-        axis.scatter(row["archive_bytes"], row["query_batch_wall_ns"], s=55)
-        axis.annotate(row["baseline"], (row["archive_bytes"], row["query_batch_wall_ns"]), fontsize=8)
+        tracefold = _is_tracefold(row)
+        axis.scatter(
+            row["archive_bytes"],
+            row["query_batch_wall_ns"],
+            s=190 if tracefold else 45,
+            marker="*" if tracefold else "o",
+            color=TRACEFOLD_COLOR if tracefold else BASELINE_COLOR,
+            edgecolors=TRACEFOLD_EDGE if tracefold else "none",
+            linewidths=1.2 if tracefold else 0,
+            alpha=1 if tracefold else 0.58,
+            zorder=4 if tracefold else 2,
+        )
+        axis.annotate(
+            (
+                f"TraceFold · ours ({row['dataset']})"
+                if tracefold
+                else _baseline_label(row)
+            ),
+            (row["archive_bytes"], row["query_batch_wall_ns"]),
+            xytext=(6, 7 + tracefold_index * 8) if tracefold else (2, 2),
+            textcoords="offset points",
+            color=TRACEFOLD_EDGE if tracefold else "#566159",
+            fontsize=9 if tracefold else 7,
+            fontweight="bold" if tracefold else "normal",
+        )
+        if tracefold:
+            tracefold_index += 1
     axis.set_title("Storage–query latency frontier")
     axis.set_xlabel("archive bytes")
     axis.set_ylabel("query batch wall time (ns)")
     axis.grid(alpha=0.2)
+    if any(_is_tracefold(row) for row in usable):
+        axis.legend(
+            handles=[
+                Line2D(
+                    [0],
+                    [0],
+                    marker="*",
+                    color="none",
+                    markerfacecolor=TRACEFOLD_COLOR,
+                    markeredgecolor=TRACEFOLD_EDGE,
+                    markersize=14,
+                    label="TraceFold · ours",
+                ),
+                Line2D(
+                    [0],
+                    [0],
+                    marker="o",
+                    color="none",
+                    markerfacecolor=BASELINE_COLOR,
+                    markersize=7,
+                    label="Comparison baselines",
+                ),
+            ],
+            frameon=False,
+        )
     _finish(fig, path)
 
 

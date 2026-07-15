@@ -9,6 +9,7 @@ from tracefold_report.model import load_rows
 from tracefold_report.report import build
 from tracefold_report.stats import bootstrap_median_ratio, median
 from tracefold_report.baselines import _query_is_legal
+from tracefold_report.charts import bars
 
 
 class ReportTests(unittest.TestCase):
@@ -70,6 +71,32 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(_query_is_legal(legal, contract))
         illegal = dict(legal, group_by=["host"])
         self.assertFalse(_query_is_legal(illegal, contract))
+
+    def test_charts_mark_tracefold_as_ours(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            chart = Path(directory) / "chart.svg"
+            bars(
+                [
+                    {
+                        "success": True,
+                        "dataset": "fixture",
+                        "baseline": "tracefold-separate-zstd3",
+                        "archive_bytes": 10,
+                    },
+                    {
+                        "success": True,
+                        "dataset": "fixture",
+                        "baseline": "parquet-raw-zstd",
+                        "archive_bytes": 20,
+                    },
+                ],
+                chart,
+                "Fixture",
+                "archive_bytes",
+            )
+            svg = chart.read_text()
+            self.assertIn("TraceFold · ours", svg)
+            self.assertIn("#d64b2a", svg)
 
 
 if __name__ == "__main__":

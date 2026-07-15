@@ -5,7 +5,7 @@ import { ResultExplorer } from "./ResultExplorer";
 const rows = [
   {
     dataset: "alpha",
-    baseline: "tracefold",
+    baseline: "tracefold-separate-zstd3",
     attempts: 3,
     archive_bytes_median: 100,
     compression_ratio_median: 5,
@@ -26,11 +26,13 @@ const rows = [
 ];
 
 describe("ResultExplorer", () => {
-  it("switches between published corpora", () => {
-    render(<ResultExplorer rows={rows} datasets={["alpha", "beta"]} />);
-    expect(screen.getAllByText("tracefold")).toHaveLength(2);
+  it("switches corpora and makes TraceFold visibly distinct", () => {
+    const { container } = render(<ResultExplorer rows={rows} datasets={["alpha", "beta"]} />);
+    expect(screen.getByLabelText("Result chart legend")).toHaveTextContent("TraceFold ours");
+    expect(container.querySelectorAll(".is-tracefold")).toHaveLength(2);
+    expect(screen.getAllByText("ours")).toHaveLength(3);
     fireEvent.change(screen.getByLabelText("Corpus"), { target: { value: "beta" } });
     expect(screen.getAllByText("gzip")).toHaveLength(2);
-    expect(screen.queryByText("tracefold")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".is-tracefold")).toHaveLength(0);
   });
 });

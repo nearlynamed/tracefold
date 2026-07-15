@@ -8,6 +8,8 @@ type ResultExplorerProps = {
   datasets: string[];
 };
 
+const TRACEFOLD_BASELINE = "tracefold-separate-zstd3";
+
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 
 function display(value: number | null, unit = ""): string {
@@ -41,21 +43,34 @@ export function ResultExplorer({ rows, datasets }: ResultExplorerProps) {
         </label>
       </div>
 
+      <div className="result-legend" aria-label="Result chart legend">
+        <span><i className="legend-swatch tracefold-swatch" aria-hidden="true" />TraceFold <b>ours</b></span>
+        <span><i className="legend-swatch baseline-swatch" aria-hidden="true" />Comparison baselines</span>
+      </div>
+
       {visible.length ? (
         <>
           <div className="bars" aria-label={`Median archive size for ${dataset}`}>
-            {visible.map((row) => (
-              <div className="bar-row" key={`${row.dataset}-${row.baseline}`}>
-                <span>{row.baseline}</span>
+            {visible.map((row) => {
+              const isTraceFold = row.baseline === TRACEFOLD_BASELINE;
+              return (
+              <div
+                className={`bar-row${isTraceFold ? " is-tracefold" : ""}`}
+                key={`${row.dataset}-${row.baseline}`}
+              >
+                <span className="bar-label">
+                  {isTraceFold ? <>TraceFold <span className="ours-badge">ours</span></> : row.baseline}
+                </span>
                 <div className="bar-track">
                   <div
                     className="bar-fill"
                     style={{ width: `${Math.max(2, ((row.archive_bytes_median ?? 0) / maxBytes) * 100)}%` }}
                   />
                 </div>
-                <strong>{display(row.archive_bytes_median, " B")}</strong>
+                <strong className="bar-value">{display(row.archive_bytes_median, " B")}</strong>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="table-scroll">
@@ -71,15 +86,23 @@ export function ResultExplorer({ rows, datasets }: ResultExplorerProps) {
                 </tr>
               </thead>
               <tbody>
-                {visible.map((row) => (
-                  <tr key={`${row.dataset}-${row.baseline}`}>
-                    <th scope="row">{row.baseline}</th>
+                {visible.map((row) => {
+                  const isTraceFold = row.baseline === TRACEFOLD_BASELINE;
+                  return (
+                  <tr
+                    className={isTraceFold ? "is-tracefold" : undefined}
+                    key={`${row.dataset}-${row.baseline}`}
+                  >
+                    <th scope="row">
+                      {isTraceFold ? <>TraceFold <span className="ours-badge">ours</span></> : row.baseline}
+                    </th>
                     <td>{row.attempts}</td>
                     <td>{display(row.compression_ratio_median, "×")}</td>
                     <td>{display(row.encode_wall_ns_median === null ? null : row.encode_wall_ns_median / 1e6, " ms")}</td>
                     <td>{display(row.query_wall_ns_median === null ? null : row.query_wall_ns_median / 1e6, " ms")}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

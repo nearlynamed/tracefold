@@ -3,5 +3,10 @@
   "framework": null,
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --dir site build",
-  "outputDirectory": "site/out"
+  "outputDirectory": "site/out",
+  "redirects": [
+    { "source": "/paper", "destination": "/#paper", "permanent": true },
+    { "source": "/data", "destination": "/#evidence", "permanent": true },
+    { "source": "/reproduce", "destination": "/#reproduce", "permanent": true }
+  ]
 }

@@ -96,7 +96,7 @@ The checked-in publication is intentionally host-specific. It does not claim dis
 
 ## Research site
 
-The Next.js App Router site is a static export. It reads only generated files from `results/site-data`, verifies publication metadata and raw-artifact hashes during its sync step, and uses no analytics or runtime backend.
+The Next.js App Router site is a single long-form static research page with anchored results, paper, evidence, and reproduction sections. It reads only generated files from `results/site-data`, verifies publication metadata and raw-artifact hashes during its sync step, and uses no analytics or runtime backend. The generated paper is substantive rather than a landing-page summary, and its tests enforce the required technical sections and a minimum narrative length.
 
 ```bash
 pnpm --dir site dev

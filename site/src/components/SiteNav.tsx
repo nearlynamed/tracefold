@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 const links = [
-  ["Research", "/"],
-  ["Paper", "/paper/"],
-  ["Data", "/data/"],
-  ["Reproduce", "/reproduce/"],
+  ["Overview", "#overview"],
+  ["Results", "#results"],
+  ["Paper", "#paper"],
+  ["Evidence", "#evidence"],
+  ["Reproduce", "#reproduce"],
 ] as const;
 
 export function SiteNav() {
@@ -16,9 +17,9 @@ export function SiteNav() {
         </Link>
         <div className="nav-links">
           {links.map(([label, href]) => (
-            <Link key={href} href={href}>
+            <a key={href} href={href}>
               {label}
-            </Link>
+            </a>
           ))}
           <a href="https://github.com/nearlynamed/tracefold">GitHub</a>
         </div>

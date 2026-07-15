@@ -15,6 +15,8 @@
 
 html { scroll-behavior: smooth; }
 
+[id] { scroll-margin-top: 90px; }
+
 body {
   margin: 0;
   color: var(--ink);
@@ -120,20 +122,20 @@ a:hover { color: var(--signal-dark); }
 .bar-fill { height: 100%; background: linear-gradient(90deg, #d64b2a, #ec8a66); }
 .bar-row strong { text-align: right; font-weight: 500; }
 .table-scroll { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; text-align: right; font-family: var(--mono); font-size: 0.77rem; }
-caption { padding-bottom: 0.8rem; text-align: left; color: #aab5ad; }
-th, td { padding: 0.8rem 0.65rem; border-top: 1px solid #46544c; white-space: nowrap; }
-th:first-child, td:first-child { text-align: left; }
+.result-explorer table { width: 100%; border-collapse: collapse; text-align: right; font-family: var(--mono); font-size: 0.77rem; }
+.result-explorer caption { padding-bottom: 0.8rem; text-align: left; color: #aab5ad; }
+.result-explorer th, .result-explorer td { padding: 0.8rem 0.65rem; border-top: 1px solid #46544c; white-space: nowrap; }
+.result-explorer th:first-child, .result-explorer td:first-child { text-align: left; }
 .empty-state { color: #aab5ad; }
 
 .limitations { display: grid; grid-template-columns: 1fr 1fr; gap: 5rem; margin-block: 2rem 8rem; padding-top: 3rem; border-top: 1px solid var(--line); }
 .limitations h2 { margin: 0; font-size: clamp(2rem, 4vw, 3.6rem); line-height: 1.05; letter-spacing: -0.05em; }
 .limitations > p { margin: 0; color: var(--muted); font-size: 1.08rem; }
 
-.prose-page, .paper { max-width: 900px; padding-block: 6rem 9rem; }
+.prose-page { max-width: 900px; padding-block: 6rem 9rem; }
 .prose-page h1 { font-size: clamp(3.5rem, 8vw, 7rem); }
 .prose-page section { margin-top: 4rem; }
-.prose-page h2, .paper h2 { margin-top: 2.5rem; font-size: 1.8rem; letter-spacing: -0.035em; }
+.prose-page h2 { margin-top: 2.5rem; font-size: 1.8rem; letter-spacing: -0.035em; }
 .prose-page pre { overflow-x: auto; padding: 1.5rem; color: #e8ede8; background: var(--ink); }
 code { font-family: var(--mono); font-size: 0.83em; overflow-wrap: anywhere; }
 .metadata-list { border-top: 1px solid var(--line); }
@@ -144,10 +146,36 @@ code { font-family: var(--mono); font-size: 0.83em; overflow-wrap: anywhere; }
 .artifact { display: grid; grid-template-columns: minmax(140px, 1fr) auto; gap: 0.3rem 1rem; padding: 1rem; border: 1px solid var(--line); }
 .artifact code { grid-column: 1 / -1; color: var(--muted); }
 
-.paper { font-family: Georgia, "Times New Roman", serif; font-size: 1.05rem; }
-.paper > h1 { font-family: var(--sans); font-size: clamp(2.8rem, 7vw, 6rem); line-height: 0.98; letter-spacing: -0.065em; }
-.paper h2 { font-family: var(--sans); margin-top: 4rem; }
-.paper p { max-width: 72ch; }
+.paper-section { padding-block: 7rem 9rem; border-top: 1px solid var(--line); background: rgba(255, 255, 255, 0.18); }
+.paper-kicker { max-width: 900px; }
+.paper { max-width: 900px; font-family: Georgia, "Times New Roman", serif; font-size: 1.08rem; line-height: 1.72; }
+.paper .paper-title { margin: 0 0 1.8rem; font-family: var(--sans); font-size: clamp(3rem, 7vw, 6.3rem); line-height: 0.96; letter-spacing: -0.065em; }
+.paper h3 { margin: 5.5rem 0 1.2rem; padding-top: 1.4rem; border-top: 1px solid var(--line); font-family: var(--sans); font-size: clamp(2rem, 4vw, 3.2rem); line-height: 1.05; letter-spacing: -0.045em; }
+.paper h4 { margin: 2.8rem 0 0.75rem; font-family: var(--sans); font-size: 1.35rem; line-height: 1.2; letter-spacing: -0.025em; }
+.paper p, .paper li { max-width: 74ch; }
+.paper > p:first-of-type { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+.paper li { margin-bottom: 0.45rem; padding-left: 0.3rem; }
+.paper a { color: var(--signal-dark); }
+.paper code { padding: 0.1em 0.25em; background: var(--paper-deep); }
+.paper table { display: block; width: 100%; margin: 2rem 0; overflow-x: auto; border-collapse: collapse; font-family: var(--mono); font-size: 0.72rem; line-height: 1.4; }
+.paper th, .paper td { padding: 0.7rem 0.6rem; border-top: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.paper th:first-child, .paper td:first-child { text-align: left; }
+.paper blockquote { margin: 2rem 0; padding-left: 1.5rem; border-left: 3px solid var(--signal); color: var(--muted); }
+
+.section-intro { max-width: 820px; }
+.section-intro h2, .reproduce-section h2 { margin: 0; font-size: clamp(2.8rem, 6vw, 5.5rem); line-height: 0.98; letter-spacing: -0.06em; }
+.evidence-section { padding-block: 8rem; }
+.evidence-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: clamp(2.5rem, 6vw, 6rem); margin-top: 4rem; }
+.evidence-grid h3 { margin: 0 0 1rem; font-size: 1.35rem; }
+.generated-links { margin: 2.5rem 0 0; font-family: var(--mono); font-size: 0.8rem; }
+
+.reproduce-section { padding-block: 8rem; color: #edf1eb; background: var(--ink); }
+.reproduce-section .eyebrow { color: #ef8a70; }
+.reproduce-section .lede, .reproduce-section p { color: #b7c2ba; }
+.reproduce-section a { color: #f2a08a; }
+.reproduce-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; align-items: start; gap: clamp(2.5rem, 7vw, 7rem); }
+.reproduce-grid pre { margin: 0; overflow-x: auto; padding: clamp(1.2rem, 3vw, 2rem); border: 1px solid #4d5c53; background: #202d25; }
+.reproduce-grid code { color: #edf1eb; font-size: 0.8rem; }
 
 .site-footer { display: flex; justify-content: space-between; gap: 1rem; padding: 2rem max(20px, calc((100% - 1180px) / 2)); border-top: 1px solid var(--line); color: var(--muted); font-family: var(--mono); font-size: 0.72rem; }
 .site-footer p { margin: 0; }
@@ -158,7 +186,7 @@ code { font-family: var(--mono); font-size: 0.83em; overflow-wrap: anywhere; }
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .metric-card:nth-child(2) { border-right: 0; }
   .metric-card:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-  .contract-grid, .limitations { grid-template-columns: 1fr; gap: 1rem; }
+  .contract-grid, .limitations, .evidence-grid, .reproduce-grid { grid-template-columns: 1fr; gap: 2.5rem; }
   .contract-grid article { padding-top: 1.4rem; }
 }
 

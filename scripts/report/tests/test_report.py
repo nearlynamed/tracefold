@@ -42,6 +42,11 @@ class ReportTests(unittest.TestCase):
             self.assertEqual(summary["failed_attempts"], 1)
             self.assertIn("timeout", (output / "summary.md").read_text())
             self.assertTrue((output / "site-data/publication.json").exists())
+            paper = (output / "paper.md").read_text()
+            self.assertGreater(len(paper.split()), 2500)
+            self.assertIn("## 2. Semantic contract", paper)
+            self.assertIn("## 8. Threats to validity", paper)
+            self.assertIn("## 11. Reproducibility and provenance", paper)
 
     def test_python_baseline_enforces_contract_boundaries(self) -> None:
         contract = {

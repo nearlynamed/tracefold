@@ -5,7 +5,7 @@ import { ResultExplorer } from "./ResultExplorer";
 const rows = [
   {
     dataset: "alpha",
-    baseline: "tracefold-separate-zstd3",
+    baseline: "tracefold-auto-zstd9",
     attempts: 3,
     archive_bytes_median: 100,
     compression_ratio_median: 5,

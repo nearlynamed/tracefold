@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-matplotlib.rcParams["svg.hashsalt"] = "tracefold-v1"
+matplotlib.rcParams["svg.hashsalt"] = "tracefold"
 
-TRACEFOLD_BASELINE = "tracefold-separate-zstd3"
+TRACEFOLD_BASELINE = "tracefold-auto-zstd9"
 TRACEFOLD_COLOR = "#d64b2a"
 TRACEFOLD_EDGE = "#8f2c18"
 BASELINE_COLOR = "#829087"
@@ -176,17 +176,27 @@ def failure_summary(rows: list[dict[str, Any]], path: Path) -> None:
 
 def generate_all(rows: list[dict[str, Any]], output: Path) -> list[str]:
     chart_dir = output / "site-data" / "charts"
+    primary_names = {
+        "jsonl", "gzip-6", "zstd-3", "zstd-9", "duckdb-raw",
+        "parquet-raw-zstd", "views-parquet-zstd", TRACEFOLD_BASELINE,
+    }
+    primary = [row for row in rows if row.get("baseline") in primary_names]
+    format_rows = [
+        row for row in rows
+        if str(row.get("baseline", "")).startswith("tracefold-")
+        or row.get("baseline") == "views-parquet-zstd"
+    ]
     specifications: list[tuple[str, Callable[[], None]]] = [
-        ("archive-bytes.svg", lambda: bars(rows, chart_dir / "archive-bytes.svg", "Archive bytes by corpus and baseline", "archive_bytes")),
-        ("compression-ratio.svg", lambda: bars(rows, chart_dir / "compression-ratio.svg", "Compression ratio", "compression_ratio")),
-        ("pareto.svg", lambda: scatter(rows, chart_dir / "pareto.svg")),
-        ("encode-throughput.svg", lambda: bars(rows, chart_dir / "encode-throughput.svg", "Encode throughput", "throughput_mib_s")),
+        ("archive-bytes.svg", lambda: bars(primary, chart_dir / "archive-bytes.svg", "Archive bytes by corpus and baseline", "archive_bytes")),
+        ("compression-ratio.svg", lambda: bars(primary, chart_dir / "compression-ratio.svg", "Compression ratio", "compression_ratio")),
+        ("pareto.svg", lambda: scatter(primary, chart_dir / "pareto.svg")),
+        ("encode-throughput.svg", lambda: bars(primary, chart_dir / "encode-throughput.svg", "Encode throughput", "throughput_mib_s")),
         ("peak-rss.svg", lambda: bars(rows, chart_dir / "peak-rss.svg", "Peak RSS", "peak_rss_bytes")),
         ("retention-frontier.svg", lambda: bars(rows, chart_dir / "retention-frontier.svg", "Raw recoverability", "raw_recoverability")),
         ("bucket-frontier.svg", lambda: bars(rows, chart_dir / "bucket-frontier.svg", "Bucket-width frontier", "archive_bytes")),
         ("scale-cardinality.svg", lambda: bars(rows, chart_dir / "scale-cardinality.svg", "Scale and cardinality", "bytes_per_event")),
         ("error-retention.svg", lambda: bars(rows, chart_dir / "error-retention.svg", "Error-retention cost", "archive_bytes")),
-        ("format-ablation.svg", lambda: bars(rows, chart_dir / "format-ablation.svg", "Semantic Parquet versus custom format", "archive_bytes")),
+        ("format-ablation.svg", lambda: bars(format_rows, chart_dir / "format-ablation.svg", "Layout and codec ablation", "archive_bytes")),
         ("failures.svg", lambda: failure_summary(rows, chart_dir / "failures.svg")),
     ]
     for _, generate in specifications:

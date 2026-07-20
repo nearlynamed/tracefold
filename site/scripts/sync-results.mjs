@@ -11,14 +11,44 @@ const destination = path.join(root, "site/public/generated");
 const publication = JSON.parse(
   await readFile(path.join(source, "publication.json"), "utf8"),
 );
+const summary = JSON.parse(await readFile(path.join(source, "summary.json"), "utf8"));
+const methodology = JSON.parse(
+  await readFile(path.join(source, "methodology.json"), "utf8"),
+);
+const paper = await readFile(path.join(root, "results/paper.md"), "utf8");
 
 if (publication.schema_version !== 1 || publication.byline !== "nearlynamed") {
   throw new Error("results/site-data/publication.json has an unsupported schema or byline");
+}
+if (
+  !publication.snapshot_id ||
+  publication.snapshot_id !== summary.snapshot_id ||
+  publication.snapshot_id !== methodology.snapshot_id ||
+  !paper.includes(publication.snapshot_id)
+) {
+  throw new Error("generated findings do not share one evidence snapshot");
+}
+
+const declared = new Set(publication.raw_results.map((artifact) => artifact.path));
+const expectedEvidence = new Set(
+  summary.table.map((row, index) => `table-primary-${index}:${row.dataset}:${row.baseline}`),
+);
+const observedEvidence = new Set(
+  publication.evidence.map((row) => `${row.id}:${row.dataset}:${row.baseline}`),
+);
+if (
+  expectedEvidence.size !== observedEvidence.size ||
+  [...expectedEvidence].some((entry) => !observedEvidence.has(entry))
+) {
+  throw new Error("publication evidence does not match the primary findings table");
 }
 
 for (const artifact of publication.raw_results ?? []) {
   if (!artifact.path || !artifact.sha256) {
     throw new Error("every published raw artifact needs a path and SHA-256 digest");
+  }
+  if (!artifact.path.startsWith("raw/") || declared.size !== publication.raw_results.length) {
+    throw new Error("published raw artifact paths must be unique and remain under raw/");
   }
 
   const contents = await readFile(path.join(source, artifact.path));

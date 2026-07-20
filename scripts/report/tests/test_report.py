@@ -41,8 +41,14 @@ class ReportTests(unittest.TestCase):
             output = root / "output"
             summary = build(load_rows(source), output)
             self.assertEqual(summary["failed_attempts"], 1)
+            self.assertEqual(len(summary["snapshot_id"]), 64)
             self.assertIn("timeout", (output / "summary.md").read_text())
             self.assertTrue((output / "site-data/publication.json").exists())
+            publication = json.loads((output / "site-data/publication.json").read_text())
+            methodology = json.loads((output / "site-data/methodology.json").read_text())
+            self.assertEqual(publication["snapshot_id"], summary["snapshot_id"])
+            self.assertEqual(methodology["snapshot_id"], summary["snapshot_id"])
+            self.assertNotIn("publication_commit", publication)
             paper = (output / "paper.md").read_text()
             self.assertGreater(len(paper.split()), 2500)
             self.assertIn("## 2. Semantic contract", paper)
@@ -80,7 +86,7 @@ class ReportTests(unittest.TestCase):
                     {
                         "success": True,
                         "dataset": "fixture",
-                        "baseline": "tracefold-separate-zstd3",
+                        "baseline": "tracefold-auto-zstd9",
                         "archive_bytes": 10,
                     },
                     {
@@ -97,6 +103,29 @@ class ReportTests(unittest.TestCase):
             svg = chart.read_text()
             self.assertIn("TraceFold · ours", svg)
             self.assertIn("#d64b2a", svg)
+
+    def test_report_rejects_mixed_implementation_commits(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "rows.jsonl"
+            rows = [
+                {
+                    "schema_version": 1,
+                    "run_id": f"run-{commit}",
+                    "timestamp": "2026-01-01T00:00:00Z",
+                    "dataset": "fixture",
+                    "baseline": "jsonl",
+                    "size_limit_bytes": 1024,
+                    "source_within_limit": True,
+                    "source_bytes": 10,
+                    "success": True,
+                    "git_commit": commit,
+                }
+                for commit in ("a", "b")
+            ]
+            source.write_text("".join(json.dumps(row) + "\n" for row in rows))
+            with self.assertRaisesRegex(ValueError, "multiple implementation commits"):
+                build(load_rows(source), root / "output")
 
 
 if __name__ == "__main__":

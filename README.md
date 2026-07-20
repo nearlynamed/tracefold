@@ -2,7 +2,7 @@
 
 TraceFold is an executable research artifact for query-preserving compression of tiered telemetry archives. It keeps exact recent records and every error record while replacing older successful payloads with exact, bucketed aggregate views for a declared query contract.
 
-The project includes a Rust archive format and CLI, deterministic synthetic and Loghub corpus adapters, independent DuckDB/Parquet baselines, a reproducible Python reporting pipeline, and a static interactive paper. The full design and fairness rules are specified in [PRD.md](PRD.md).
+The project includes a Rust archive format and CLI, deterministic synthetic and Loghub corpus adapters, independent DuckDB/Parquet baselines, a reproducible Python reporting pipeline, and a static interactive paper. The encoder evaluates separate and unified aggregate layouts, retains the smaller complete archive, stores operation-specific aggregate state, and preserves recent/error events in checksummed binary blocks. The full design and fairness rules are specified in [PRD.md](PRD.md).
 
 > **Research status:** technical report, not peer reviewed. TraceFold preserves only declared query families. It cannot reconstruct old successful payloads or answer arbitrary SQL, joins, regex filters, quantiles, or distinct counts.
 
@@ -23,7 +23,7 @@ pnpm --dir site test
 pnpm --dir site build
 ```
 
-Run the complete 10,000-event smoke publication, including all eight storage baselines and 200 legal plus 20 illegal queries:
+Run the complete 10,000-event smoke publication, including raw, database, semantic, layout, and codec baselines plus 200 legal and 20 illegal queries:
 
 ```bash
 scripts/reproduce-smoke.sh
@@ -90,13 +90,13 @@ Malformed public lines remain as `unparsed` canonical records. Normalization fai
 
 Every benchmark freezes canonical input and archive hashes before generating a seeded query workload. The default contract produces 40 legal queries for each of five families and 20 illegal queries. TraceFold answers are compared byte-for-byte with the Rust raw oracle; DuckDB raw, raw Parquet, and view-equivalent Parquet are independently checked against hashed oracle rows.
 
-Included storage baselines are canonical JSONL, gzip-6, Zstandard 3/9, DuckDB raw, Parquet/Zstandard raw, semantic Parquet/Zstandard, and TraceFold separate-view/Zstandard-3. Failures and semantic mismatches remain in raw result rows and are excluded only from performance aggregates.
+Included storage baselines are canonical JSONL, gzip-6, Zstandard 3/9, DuckDB raw, Parquet/Zstandard raw, semantic Parquet/Zstandard, TraceFold auto-layout/Zstandard-9, and explicit layout/codec ablations. Failures and semantic mismatches remain in raw result rows and are excluded only from performance aggregates.
 
 The checked-in publication is intentionally host-specific. It does not claim disk-cold cache state or universal performance. See the generated paper for threats to validity and [results/summary.md](results/summary.md) for the measured snapshot.
 
 ## Research site
 
-The Next.js App Router site is a single long-form static research page with anchored results, paper, evidence, and reproduction sections. It reads only generated files from `results/site-data`, verifies publication metadata and raw-artifact hashes during its sync step, and uses no analytics or runtime backend. The generated paper is substantive rather than a landing-page summary, and its tests enforce the required technical sections and a minimum narrative length.
+The Next.js App Router site is a single long-form static research page with anchored results, paper, evidence, and reproduction sections. It reads only generated files from `results/site-data`, requires one matching evidence snapshot across every generated artifact, verifies raw-artifact hashes during its sync step, and uses no analytics or runtime backend. The generated paper is substantive rather than a landing-page summary, and its tests enforce the required technical sections and a minimum narrative length.
 
 ```bash
 pnpm --dir site dev

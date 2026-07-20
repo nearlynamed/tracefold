@@ -1,16 +1,16 @@
 # TraceFold: Query-Preserving Compression for Tiered Telemetry Archives
 
-**Status:** Implementation-ready product requirements and research plan  
+**Status:** Product requirements and research protocol
 **Working directory:** `/home/user/tracefold`  
 **Primary deliverable:** Reproducible research artifact and technical paper  
 **Secondary deliverable:** Usable local CLI  
 **Implementation:** Rust 2024 core and CLI; Python 3.11+ reporting through `uv`  
 **License:** MIT OR Apache-2.0  
-**Archive format:** TraceFold Archive v1, stored as a `.tfold` directory
+**Archive format:** TraceFold Archive, stored as a `.tfold` directory
 
 ## 1. Handoff instructions
 
-This document is the source of truth for implementation. A new coding-agent instance should read it completely, inspect the empty or partially implemented repository, and implement the full v1 without requesting further product decisions. Preserve these decisions unless a hard technical impossibility is demonstrated:
+This document is the source of truth for implementation and evaluation. Preserve these decisions unless a hard technical impossibility is demonstrated:
 
 - Build a telemetry-first batch archive, not a streaming service.
 - Preserve exact results for declared query families under explicit time-bucket semantics.
@@ -20,7 +20,7 @@ This document is the source of truth for implementation. A new coding-agent inst
 - Deliberately give up reconstruction of older successful raw events.
 - Treat negative benchmark results as valid. Never tune away, omit, or hide regressions.
 - Keep downloaded corpora and large generated data out of Git.
-- Do not build the eventual hosted paper site in v1. Generate stable Markdown, SVG, and JSON artifacts that a later Next.js/Vercel site can consume.
+- Generate stable Markdown, SVG, and JSON artifacts consumed by the static Next.js research site.
 - Do not modify or inspect `indexdataset` as part of this project.
 - Do not push, deploy, or create external resources unless separately authorized.
 
@@ -51,12 +51,12 @@ The main artifact is a rigorous comparison among raw-preserving storage, mature 
 
 - General arbitrary JSONL schema inference.
 - Arbitrary SQL, joins, regex predicates, or undeclared dimensions.
-- Approximate query answers, sketches, approximate distinct counts, or quantiles in v1.
+- Approximate query answers, sketches, approximate distinct counts, or quantiles.
 - Live ingestion, concurrent writers, background aging, or crash-safe streaming compaction.
 - Full OTLP protobuf ingestion or an observability backend.
 - Encryption, secret detection, or a claim that retained data is safe to share.
 - Reconstructing old successful events.
-- A hosted dashboard or Vercel application in v1.
+- A runtime dashboard or mutable hosted backend.
 
 ## 3. Research questions and success definition
 
@@ -71,7 +71,7 @@ The main artifact is a rigorous comparison among raw-preserving storage, mature 
 
 ### Completion versus favorable results
 
-Implementation success does not require TraceFold to win. V1 is complete when:
+Implementation success does not require TraceFold to win. The artifact is complete when:
 
 - Every legal declared query returns exactly the same canonical result as the raw-data oracle.
 - Every illegal or unavailable query fails clearly rather than returning a partial answer.
@@ -214,7 +214,7 @@ A manifest family preserves more than a finite answer. At query time, users may 
 - Any grouping that is a subset of the declared family dimensions.
 - Any subset of the family's declared measures.
 
-The time bucket is an implicit grouping key in every v1 aggregate query; v1 does not collapse an interval into one timeless total. Only buckets containing selected events are emitted, so zero-filling is a reporting/client concern. Results are exact under those rules. Rows are sorted by time bucket and then lexicographically by grouped dimensions. An empty selection returns an empty `rows` array, not an error.
+The time bucket is an implicit grouping key in every aggregate query; TraceFold does not collapse an interval into one timeless total. Only buckets containing selected events are emitted, so zero-filling is a reporting/client concern. Results are exact under those rules. Rows are sorted by time bucket and then lexicographically by grouped dimensions. An empty selection returns an empty `rows` array, not an error.
 
 V1 rejects:
 
@@ -281,9 +281,9 @@ Encoding writes to a sibling temporary directory and atomically renames it only 
 
 ### 5.2 Dictionaries and views
 
-The primary `separate` layout creates one physical view for each unique dimension set. Families with identical dimensions share a view and store the union of their measures. It does not silently replace a family with a higher-dimensional superset.
+The `separate` layout creates one physical view for each unique dimension set. Families with identical dimensions share a view and store the union of their measures. It does not silently replace a family with a higher-dimensional superset.
 
-An experimental `unified` layout creates one view using the union of all dimensions if that union contains at most eight dimensions. It is an ablation, not the default. If the union exceeds eight, the encoder rejects `--layout unified`.
+The `unified` layout creates one view using the union of all dimensions if that union contains at most eight dimensions. The default `auto` layout constructs and verifies both legal candidates, compares their complete apparent archive bytes, and publishes the smaller candidate; exact ties select `separate`. Explicit layouts remain available for ablation. If the union exceeds eight dimensions, `auto` uses `separate` and explicit `--layout unified` is rejected.
 
 Dictionary construction is deterministic:
 
@@ -303,12 +303,12 @@ TraceFold must not require all aggregate cells to fit in memory.
 - Track peak estimated bytes, number and bytes of spills, and temporary-disk high-water mark.
 - The publish benchmark uses the default budget. A small-budget test forces spills on tiny fixtures.
 
-### 5.4 View binary format v1
+### 5.4 View and retained-event binary formats
 
 Every `.tfv` file is little-endian and consists of:
 
 1. Eight-byte magic `TFLDVIEW`.
-2. `u16` format version `1`.
+2. A `u16` internal format discriminator.
 3. `i64` bucket width in nanoseconds.
 4. Length-prefixed canonical JSON describing dimensions and measures.
 5. `u32` block count.
@@ -322,12 +322,15 @@ Rows are globally sorted by `(bucket, dimension IDs)`. Within an uncompressed bl
 - Integers use unsigned LEB128; signed values use ZigZag LEB128.
 - Bucket values are delta-encoded from the previous row.
 - Dimension dictionary IDs are encoded in declared order.
-- `count` and `present_count` use `u64`.
-- `sum`, `min`, and `max` use checked `i64` encodings.
-- Histogram bins use `u64` and include underflow/overflow.
-- Zstandard level 3 is the product default; benchmark ablations may use levels 1, 3, and 9.
+- `count` and `count_present` each store one unsigned integer.
+- `sum` stores a presence flag and checked signed integer.
+- `min` and `max` store optional checked signed integers.
+- Histograms store only their schema-known unsigned bins, including underflow and overflow.
+- Zstandard level 9 is the product default; benchmark ablations use levels 1, 3, and 9.
 
 The decoder validates every length and ID before allocation. It caps block size at 16 MiB, dimension count at eight for the physical format, and row count at the values declared in metadata. Corrupt or adversarial archives must fail without path traversal or uncontrolled allocation.
+
+Recent and error events are stored in separate `.tfr` files. Their blocks encode timestamp deltas, optional-field bitmaps, packed enums, repeated-string dictionaries, signed integers, attributes, and canonical JSON bodies. Every block index records timestamp bounds, offsets, compressed and uncompressed lengths, event count, and BLAKE3 hash. Decoding reconstructs and validates exact canonical event values; verification also enforces retained-class membership and disjointness.
 
 ## 6. Public CLI and outputs
 
@@ -456,7 +459,7 @@ The repository may include the checked-in 2,000-line Loghub samples for tests on
 
 ### 8.3 Optional external validation
 
-OpenTelemetry's official demo and `telemetrygen` are suitable future sources, but v1 completion does not depend on Docker Compose or a live collector. The canonical schema should remain easy to map from OTLP JSON later.
+OpenTelemetry's official demo and `telemetrygen` are suitable future sources, but completion does not depend on Docker Compose or a live collector. The canonical schema should remain easy to map from OTLP JSON later.
 
 ## 9. Baselines
 
@@ -480,9 +483,9 @@ For JSONL/gzip/Zstandard query timing, stream-decompress and scan with the Rust 
 
 ### TraceFold variants
 
-- `tracefold-separate-zstd3`: primary product configuration.
-- `tracefold-separate-zstd1` and `tracefold-separate-zstd9`: codec-level ablations.
-- `tracefold-unified-zstd3`: dimension-layout ablation when legal.
+- `tracefold-auto-zstd9`: primary product configuration.
+- `tracefold-separate-zstd1`, `tracefold-separate-zstd3`, and `tracefold-separate-zstd9`: codec-level ablations.
+- `tracefold-unified-zstd3` and `tracefold-unified-zstd9`: dimension-layout ablations when legal.
 
 ### Non-comparable lower bound
 
@@ -805,9 +808,9 @@ V1 is ready when all of the following are true:
 - Exact recent and error tiers should be treated as sensitive. Encoding prints this warning unless `--quiet` is set.
 - Dropping old bodies is not secure deletion, encryption, or proof that all sensitive values disappeared; declared dimensions and dictionaries remain.
 - Normalization and archive operations are local. Dataset fetch is the only required networked command.
-- The v1 runtime target is Linux, including WSL2. macOS should compile where dependencies permit, but publish measurements are host-specific.
+- The runtime target is Linux, including WSL2. macOS should compile where dependencies permit, but publish measurements are host-specific.
 - Archive, contract, canonical event, query-result, and benchmark-result schemas are independently versioned at `1`.
-- Before version 0.2, incompatible format changes may reject old archives but must fail clearly. Do not add migration machinery to v1.
+- Unsupported archive discriminators fail clearly. The research artifact does not include migration machinery.
 
 ## 19. Known risks and mitigations
 
@@ -817,9 +820,9 @@ V1 is ready when all of the following are true:
 - **Synthetic overfitting:** Use fixed public corpora, a second seed, adversarial scenarios, and per-corpus results.
 - **Parser misclassification:** Preserve raw lines in canonical bodies, record parse warnings, enforce a 0.1% threshold, and discuss error-label dependence.
 - **Benchmark noise:** Repeat trials, randomize order, preserve raw rows, use confidence intervals, and avoid disk-cold claims.
-- **Paper-first scope creep:** No streaming, SQL parser, approximate sketches, OTLP service, or web UI in v1.
+- **Paper-first scope creep:** No streaming, SQL parser, approximate sketches, or OTLP service.
 
-## 20. Post-v1 possibilities
+## 20. Future possibilities
 
 These are explicitly deferred:
 
@@ -830,12 +833,5 @@ These are explicitly deferred:
 - Direct OTLP JSON/protobuf and OpenTelemetry Collector integration.
 - Indexed raw-event retrieval and selective permanent retention predicates.
 - Encryption and redaction.
-- A Vercel-hosted interactive paper using `results/site-data`.
 
-The v1 paper should end by identifying which of these is justified by measured results rather than assuming that every extension is worthwhile.
-
-## Appendix A — Copy/paste implementation prompt
-
-```text
-Read /home/user/tracefold/PRD.md completely and implement TraceFold v1 end to end in /home/user/tracefold. Treat the PRD as decision complete and preserve its semantic, fairness, data, benchmark, and paper requirements. Continue through all milestones without stopping after scaffolding or a partial prototype. Run correctness gates before performance experiments; preserve negative and failed benchmark rows; do not fabricate favorable results. Do not inspect indexdataset. Do not push or deploy. When finished, report implemented behavior, benchmark evidence actually obtained, quality-gate results, known limitations, and exact commands for reproducing the paper.
-```
+The paper should identify which possibilities are justified by measured results rather than assuming that every extension is worthwhile.

@@ -16,11 +16,13 @@ use tracefold_core::{
 use crate::{
     ARCHIVE_FORMAT_VERSION,
     codec::{EncodedRow, ViewSchema, write_view},
+    raw_codec::RawEventWriter,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Layout {
+    Auto,
     Separate,
     Unified,
 }
@@ -39,10 +41,10 @@ impl Default for EncodeOptions {
     fn default() -> Self {
         Self {
             force: false,
-            layout: Layout::Separate,
+            layout: Layout::Auto,
             aggregation_budget_bytes: 512 * 1024 * 1024,
             cardinality_limit: 10_000_000,
-            zstd_level: 3,
+            zstd_level: 9,
             git_commit: None,
         }
     }
@@ -56,7 +58,11 @@ pub struct EncodeResult {
     pub source_hash: String,
     pub record_count: u64,
     pub error_count: u64,
+    pub recent_count: u64,
     pub hot_cutoff_ns: i64,
+    pub requested_layout: Layout,
+    pub selected_layout: Layout,
+    pub candidate_archive_bytes: BTreeMap<String, u64>,
     pub spill_count: u64,
     pub elapsed_ns: u64,
 }
@@ -77,7 +83,10 @@ pub(crate) struct ArchiveMeta {
     pub hot_cutoff_ns: i64,
     pub bucket_width_ns: i64,
     pub error_count: u64,
+    pub recent_count: u64,
+    pub requested_layout: Layout,
     pub layout: Layout,
+    pub candidate_archive_bytes: BTreeMap<String, u64>,
     pub zstd_level: i32,
     pub components: BTreeMap<String, ComponentSize>,
     pub views: Vec<ViewMeta>,
@@ -151,7 +160,107 @@ pub fn encode(
     output: &Path,
     options: &EncodeOptions,
 ) -> anyhow::Result<EncodeResult> {
+    if options.layout == Layout::Auto {
+        encode_auto(input, contract, output, options)
+    } else {
+        encode_explicit(input, contract, output, options)
+    }
+}
+
+fn encode_auto(
+    input: &Path,
+    contract: &Contract,
+    output: &Path,
+    options: &EncodeOptions,
+) -> anyhow::Result<EncodeResult> {
     let started = Instant::now();
+    if output.exists() && !options.force {
+        anyhow::bail!("output already exists; pass --force to replace it");
+    }
+    let parent = output.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(parent)?;
+    let candidates = tempfile::Builder::new()
+        .prefix(".tracefold-auto-")
+        .tempdir_in(parent)?;
+    let separate_path = candidates.path().join("separate.tfold");
+    let mut separate_options = options.clone();
+    separate_options.force = false;
+    separate_options.layout = Layout::Separate;
+    encode_explicit(input, contract, &separate_path, &separate_options)?;
+
+    let unified_path = candidates.path().join("unified.tfold");
+    let has_unified = unified_legal(contract);
+    if has_unified {
+        let mut unified_options = options.clone();
+        unified_options.force = false;
+        unified_options.layout = Layout::Unified;
+        encode_explicit(input, contract, &unified_path, &unified_options)?;
+    }
+
+    let mut candidate_bytes =
+        BTreeMap::from([("separate".to_owned(), archive_bytes(&separate_path)?)]);
+    if has_unified {
+        candidate_bytes.insert("unified".to_owned(), archive_bytes(&unified_path)?);
+    }
+    for _ in 0..4 {
+        prepare_auto_candidate(&separate_path, &candidate_bytes)?;
+        if has_unified {
+            prepare_auto_candidate(&unified_path, &candidate_bytes)?;
+        }
+        let mut observed =
+            BTreeMap::from([("separate".to_owned(), archive_bytes(&separate_path)?)]);
+        if has_unified {
+            observed.insert("unified".to_owned(), archive_bytes(&unified_path)?);
+        }
+        if observed == candidate_bytes {
+            break;
+        }
+        candidate_bytes = observed;
+    }
+
+    let selected_layout = if candidate_bytes
+        .get("unified")
+        .is_some_and(|unified| unified < &candidate_bytes["separate"])
+    {
+        Layout::Unified
+    } else {
+        Layout::Separate
+    };
+    let selected_path = match selected_layout {
+        Layout::Separate => &separate_path,
+        Layout::Unified => &unified_path,
+        Layout::Auto => unreachable!(),
+    };
+    let meta: ArchiveMeta = serde_json::from_reader(File::open(selected_path.join("meta.json"))?)?;
+    crate::Archive::open(selected_path)?.verify()?;
+    publish_existing(selected_path, output, options.force)?;
+    Ok(EncodeResult {
+        schema_version: 1,
+        output: output.to_owned(),
+        archive_hash: meta.archive_hash,
+        source_hash: meta.source_content_hash,
+        record_count: meta.record_count,
+        error_count: meta.error_count,
+        recent_count: meta.recent_count,
+        hot_cutoff_ns: meta.hot_cutoff_ns,
+        requested_layout: Layout::Auto,
+        selected_layout,
+        candidate_archive_bytes: candidate_bytes,
+        spill_count: meta.encode.spill_count,
+        elapsed_ns: started.elapsed().as_nanos() as u64,
+    })
+}
+
+fn encode_explicit(
+    input: &Path,
+    contract: &Contract,
+    output: &Path,
+    options: &EncodeOptions,
+) -> anyhow::Result<EncodeResult> {
+    let started = Instant::now();
+    if options.layout == Layout::Auto {
+        anyhow::bail!("internal error: explicit encoder received auto layout");
+    }
     if output.exists() && !options.force {
         anyhow::bail!("output already exists; pass --force to replace it");
     }
@@ -177,27 +286,31 @@ pub fn encode(
         RecentRetention::All => pass_one.min_timestamp_ns,
         RecentRetention::Duration(duration) => pass_one.max_timestamp_ns.saturating_sub(duration),
     };
-    let dictionary_maps = write_dictionaries(archive_root, &pass_one.dictionaries)?;
+    let dictionary_maps =
+        write_dictionaries(archive_root, &pass_one.dictionaries, options.zstd_level)?;
     fs::write(archive_root.join("contract.toml"), &contract.source)?;
 
     let mut cells: Vec<BTreeMap<CellKey, CellState>> =
         physical_views.iter().map(|_| BTreeMap::new()).collect();
     let mut spill_files: Vec<Vec<PathBuf>> = physical_views.iter().map(|_| Vec::new()).collect();
     let mut stats = EncodeStats::default();
-    let recent_file = File::create(archive_root.join("raw/recent.jsonl.zst"))?;
-    let errors_file = File::create(archive_root.join("raw/errors.jsonl.zst"))?;
-    let mut recent = zstd::stream::write::Encoder::new(recent_file, options.zstd_level)?;
-    let mut errors = zstd::stream::write::Encoder::new(errors_file, options.zstd_level)?;
+    let mut recent =
+        RawEventWriter::create(archive_root.join("raw/recent.tfr"), options.zstd_level)?;
+    let mut errors =
+        RawEventWriter::create(archive_root.join("raw/errors.tfr"), options.zstd_level)?;
     let reader = BufReader::new(File::open(input)?);
     let bucket_width = contract.bucket_ns()?;
+    let mut recent_count = 0_u64;
     for line in reader.lines() {
         let event = CanonicalEvent::parse_line(&line?)?;
-        let canonical = event.canonical_line()?;
         let is_error = is_error(contract, &event);
         if is_error {
-            writeln!(errors, "{canonical}")?;
+            errors.push(event.clone())?;
         } else if event.timestamp_ns >= hot_cutoff_ns {
-            writeln!(recent, "{canonical}")?;
+            recent.push(event.clone())?;
+            recent_count = recent_count
+                .checked_add(1)
+                .ok_or_else(|| anyhow::anyhow!("recent record count overflow"))?;
         }
         for (index, view) in physical_views.iter().enumerate() {
             let key = CellKey {
@@ -231,8 +344,8 @@ pub fn encode(
             )?;
         }
     }
-    recent.finish()?.sync_all()?;
-    errors.finish()?.sync_all()?;
+    recent.finish()?;
+    errors.finish()?;
 
     let mut view_meta = Vec::new();
     for (index, view) in physical_views.iter().enumerate() {
@@ -286,7 +399,10 @@ pub fn encode(
         hot_cutoff_ns,
         bucket_width_ns: bucket_width,
         error_count: pass_one.error_count,
+        recent_count,
+        requested_layout: options.layout,
         layout: options.layout,
+        candidate_archive_bytes: BTreeMap::new(),
         zstd_level: options.zstd_level,
         components: component_sizes(archive_root)?,
         views: view_meta,
@@ -314,7 +430,11 @@ pub fn encode(
         source_hash: pass_one.source_hash,
         record_count: pass_one.record_count,
         error_count: pass_one.error_count,
+        recent_count,
         hot_cutoff_ns,
+        requested_layout: options.layout,
+        selected_layout: options.layout,
+        candidate_archive_bytes: BTreeMap::new(),
         spill_count: meta.encode.spill_count,
         elapsed_ns: started.elapsed().as_nanos() as u64,
     })
@@ -377,6 +497,7 @@ fn pass_one(
 
 fn physical_views(contract: &Contract, layout: Layout) -> anyhow::Result<Vec<PhysicalView>> {
     let groups: Vec<Vec<&Family>> = match layout {
+        Layout::Auto => anyhow::bail!("auto layout must be resolved before view planning"),
         Layout::Separate => {
             let mut grouped: BTreeMap<Vec<String>, Vec<&Family>> = BTreeMap::new();
             for family in &contract.families {
@@ -449,9 +570,20 @@ fn physical_views(contract: &Contract, layout: Layout) -> anyhow::Result<Vec<Phy
         .collect()
 }
 
+fn unified_legal(contract: &Contract) -> bool {
+    contract
+        .families
+        .iter()
+        .flat_map(|family| &family.dimensions)
+        .collect::<BTreeSet<_>>()
+        .len()
+        <= 8
+}
+
 fn write_dictionaries(
     root: &Path,
     dictionaries: &BTreeMap<String, BTreeSet<String>>,
+    zstd_level: i32,
 ) -> anyhow::Result<BTreeMap<String, HashMap<String, u32>>> {
     let mut maps = BTreeMap::new();
     for (field, values) in dictionaries {
@@ -462,7 +594,7 @@ fn write_dictionaries(
             root.join("dictionaries")
                 .join(format!("{}.json.zst", safe_name(field))),
         )?;
-        let mut encoder = zstd::stream::write::Encoder::new(file, 3)?;
+        let mut encoder = zstd::stream::write::Encoder::new(file, zstd_level)?;
         serde_json::to_writer(&mut encoder, &ordered)?;
         encoder.finish()?.sync_all()?;
         maps.insert(
@@ -490,7 +622,7 @@ fn safe_name(field: &str) -> String {
         .collect()
 }
 
-fn is_error(contract: &Contract, event: &CanonicalEvent) -> bool {
+pub(crate) fn is_error(contract: &Contract, event: &CanonicalEvent) -> bool {
     contract
         .retention
         .error_severities
@@ -567,7 +699,14 @@ fn component_sizes(root: &Path) -> anyhow::Result<BTreeMap<String, ComponentSize
     let mut result = BTreeMap::<String, ComponentSize>::new();
     for path in files_recursive(root)? {
         let relative = path.strip_prefix(root)?.to_string_lossy();
-        let component = relative.split('/').next().unwrap_or("metadata").to_owned();
+        let component = if relative.starts_with("raw/recent") {
+            "raw_recent"
+        } else if relative.starts_with("raw/errors") {
+            "raw_errors"
+        } else {
+            relative.split('/').next().unwrap_or("metadata")
+        }
+        .to_owned();
         let bytes = fs::metadata(&path)?.len();
         let entry = result.entry(component).or_default();
         entry.compressed_bytes += bytes;
@@ -604,6 +743,31 @@ fn hash_checksum_manifest(entries: &BTreeMap<String, ChecksumEntry>) -> anyhow::
     Ok(blake3::hash(&serde_json::to_vec(entries)?)
         .to_hex()
         .to_string())
+}
+
+fn archive_bytes(root: &Path) -> anyhow::Result<u64> {
+    files_recursive(root)?
+        .into_iter()
+        .try_fold(0_u64, |total, path| {
+            Ok(total.saturating_add(fs::metadata(path)?.len()))
+        })
+}
+
+fn prepare_auto_candidate(
+    root: &Path,
+    candidate_archive_bytes: &BTreeMap<String, u64>,
+) -> anyhow::Result<()> {
+    let mut meta: ArchiveMeta = serde_json::from_reader(File::open(root.join("meta.json"))?)?;
+    meta.requested_layout = Layout::Auto;
+    meta.candidate_archive_bytes = candidate_archive_bytes.clone();
+    meta.archive_hash.clear();
+    write_json(root.join("meta.json"), &meta)?;
+    let initial_checksums = checksums(root)?;
+    meta.archive_hash = hash_checksum_manifest(&initial_checksums)?;
+    write_json(root.join("meta.json"), &meta)?;
+    write_json(root.join("checksums.json"), &checksums(root)?)?;
+    crate::Archive::open(root)?.verify()?;
+    Ok(())
 }
 
 fn files_recursive(root: &Path) -> anyhow::Result<Vec<PathBuf>> {
@@ -656,6 +820,33 @@ fn publish_temp(temp: TempDir, output: &Path, force: bool) -> anyhow::Result<()>
                 let _ = fs::rename(&backup, output);
             }
             let _ = fs::remove_dir_all(temp_path);
+            Err(error.into())
+        }
+    }
+}
+
+fn publish_existing(source: &Path, output: &Path, force: bool) -> anyhow::Result<()> {
+    let backup = output.with_extension("tfold.replaced");
+    if output.exists() {
+        if !force {
+            anyhow::bail!("output already exists");
+        }
+        if backup.exists() {
+            fs::remove_dir_all(&backup)?;
+        }
+        fs::rename(output, &backup)?;
+    }
+    match fs::rename(source, output) {
+        Ok(()) => {
+            if backup.exists() {
+                fs::remove_dir_all(backup)?;
+            }
+            Ok(())
+        }
+        Err(error) => {
+            if backup.exists() && !output.exists() {
+                let _ = fs::rename(&backup, output);
+            }
             Err(error.into())
         }
     }

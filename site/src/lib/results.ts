@@ -14,6 +14,7 @@ export type ResultRow = {
 
 export type Summary = {
   schema_version: 1;
+  snapshot_id: string;
   attempts: number;
   successful_attempts: number;
   failed_attempts: number;
@@ -27,7 +28,7 @@ export type Summary = {
     kind: string | null;
     error: string | null;
   }>;
-  charts: Record<string, string>;
+  charts: string[];
 };
 
 export type Publication = {
@@ -36,7 +37,7 @@ export type Publication = {
   byline: string;
   status: string;
   benchmark_commit: string;
-  publication_commit: string;
+  snapshot_id: string;
   raw_results: Array<{ path: string; bytes: number; sha256: string }>;
 };
 

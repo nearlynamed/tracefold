@@ -15,7 +15,8 @@ use tracefold_core::{
 use crate::{
     ARCHIVE_FORMAT_VERSION,
     codec::{CodecError, ViewReader},
-    writer::{ArchiveMeta, ChecksumEntry, ComponentSize, ViewMeta},
+    raw_codec::RawEventReader,
+    writer::{ArchiveMeta, ChecksumEntry, ComponentSize, ViewMeta, is_error},
 };
 
 #[derive(Debug, Error)]
@@ -65,10 +66,14 @@ pub struct InspectResult {
     pub contract_hash: String,
     pub record_count: u64,
     pub error_count: u64,
+    pub recent_count: u64,
     pub min_timestamp_ns: i64,
     pub max_timestamp_ns: i64,
     pub hot_cutoff_ns: i64,
     pub bucket_width_ns: i64,
+    pub requested_layout: crate::Layout,
+    pub selected_layout: crate::Layout,
+    pub candidate_archive_bytes: BTreeMap<String, u64>,
     pub components: BTreeMap<String, ComponentSize>,
     pub views: Vec<PublicView>,
     pub dictionary_cardinalities: BTreeMap<String, u64>,
@@ -165,17 +170,36 @@ impl Archive {
     }
 
     pub fn inspect(&self) -> InspectResult {
+        let mut components = self.meta.components.clone();
+        let known = components
+            .values()
+            .map(|component| component.compressed_bytes)
+            .sum::<u64>();
+        if let Ok(total) = directory_bytes(&self.root) {
+            let bytes = total.saturating_sub(known);
+            components.insert(
+                "metadata".into(),
+                ComponentSize {
+                    logical_bytes: bytes,
+                    compressed_bytes: bytes,
+                },
+            );
+        }
         InspectResult {
             schema_version: 1,
             archive_hash: self.meta.archive_hash.clone(),
             contract_hash: self.meta.contract_hash.clone(),
             record_count: self.meta.record_count,
             error_count: self.meta.error_count,
+            recent_count: self.meta.recent_count,
             min_timestamp_ns: self.meta.min_timestamp_ns,
             max_timestamp_ns: self.meta.max_timestamp_ns,
             hot_cutoff_ns: self.meta.hot_cutoff_ns,
             bucket_width_ns: self.meta.bucket_width_ns,
-            components: self.meta.components.clone(),
+            requested_layout: self.meta.requested_layout,
+            selected_layout: self.meta.layout,
+            candidate_archive_bytes: self.meta.candidate_archive_bytes.clone(),
+            components,
             views: self
                 .meta
                 .views
@@ -323,10 +347,10 @@ impl Archive {
     ) -> Result<Vec<CanonicalEvent>, ArchiveError> {
         let mut events = Vec::new();
         if matches!(class, RetainedClass::All | RetainedClass::Recent) {
-            events.extend(read_zstd_events(&self.root.join("raw/recent.jsonl.zst"))?);
+            events.extend(read_raw_events(&self.root.join("raw/recent.tfr"))?);
         }
         if matches!(class, RetainedClass::All | RetainedClass::Errors) {
-            events.extend(read_zstd_events(&self.root.join("raw/errors.jsonl.zst"))?);
+            events.extend(read_raw_events(&self.root.join("raw/errors.tfr"))?);
         }
         events.sort_by(|left, right| {
             (left.timestamp_ns, left.event_id.as_str())
@@ -395,6 +419,29 @@ impl Archive {
             }
             rows_checked += rows.len() as u64;
         }
+        let recent = read_raw_events(&self.root.join("raw/recent.tfr"))?;
+        let errors = read_raw_events(&self.root.join("raw/errors.tfr"))?;
+        if errors.len() as u64 != self.meta.error_count
+            || recent.len() as u64 != self.meta.recent_count
+            || recent.iter().any(|event| {
+                event.timestamp_ns < self.meta.hot_cutoff_ns || is_error(&self.contract, event)
+            })
+            || errors.iter().any(|event| !is_error(&self.contract, event))
+        {
+            return Err(ArchiveError::Corrupt(
+                "retained-event classification mismatch".into(),
+            ));
+        }
+        let recent_ids: std::collections::BTreeSet<_> =
+            recent.iter().map(|event| &event.event_id).collect();
+        if errors
+            .iter()
+            .any(|event| recent_ids.contains(&event.event_id))
+        {
+            return Err(ArchiveError::Corrupt(
+                "recent and error retention tiers overlap".into(),
+            ));
+        }
         Ok(VerificationReport {
             schema_version: 1,
             archive_hash: self.meta.archive_hash.clone(),
@@ -459,9 +506,10 @@ fn verify_state(
     Ok(())
 }
 
-fn read_zstd_events(path: &Path) -> Result<Vec<CanonicalEvent>, ArchiveError> {
-    let decoder = zstd::stream::read::Decoder::new(File::open(path)?)?;
-    read_event_reader(BufReader::new(decoder))
+fn read_raw_events(path: &Path) -> Result<Vec<CanonicalEvent>, ArchiveError> {
+    RawEventReader::open(path)
+        .and_then(|mut reader| reader.events())
+        .map_err(|error| ArchiveError::Corrupt(error.to_string()))
 }
 
 fn read_plain_events(path: &Path) -> Result<Vec<CanonicalEvent>, ArchiveError> {
@@ -489,6 +537,23 @@ fn safe_name(field: &str) -> String {
             }
         })
         .collect()
+}
+
+fn directory_bytes(root: &Path) -> std::io::Result<u64> {
+    fn visit(path: &Path, total: &mut u64) -> std::io::Result<()> {
+        for entry in fs::read_dir(path)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                visit(&path, total)?;
+            } else if path.is_file() {
+                *total = total.saturating_add(fs::metadata(path)?.len());
+            }
+        }
+        Ok(())
+    }
+    let mut total = 0;
+    visit(root, &mut total)?;
+    Ok(total)
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Result<T, ArchiveError> {
@@ -599,6 +664,65 @@ mod tests {
             .write_all(b"tampered")
             .unwrap();
         assert!(Archive::open(&first_path).unwrap().verify().is_err());
+    }
+
+    #[test]
+    fn auto_layout_keeps_the_smaller_complete_archive() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = dir.path().join("cross-product.jsonl");
+        let mut writer = File::create(&input).unwrap();
+        let mut index = 0_u64;
+        for event_type in 0..24 {
+            for operation in 0..24 {
+                for model in 0..24 {
+                    let event = CanonicalEvent {
+                        schema_version: tracefold_core::CANONICAL_SCHEMA_VERSION,
+                        timestamp_ns: 1_784_064_000_000_000_000,
+                        event_id: format!("event-{index}"),
+                        trace_id: None,
+                        span_id: None,
+                        parent_span_id: None,
+                        service: "service".into(),
+                        operation: Some(format!("operation-{operation}")),
+                        event_type: format!("type-{event_type}"),
+                        severity: tracefold_core::Severity::Info,
+                        status: tracefold_core::Status::Ok,
+                        error_code: None,
+                        model: Some(format!("model-{model}")),
+                        duration_ns: Some(1),
+                        bytes_in: Some(1),
+                        bytes_out: Some(1),
+                        tokens_in: Some(1),
+                        tokens_out: Some(1),
+                        attributes: BTreeMap::new(),
+                        body: serde_json::Value::Null,
+                    };
+                    writeln!(writer, "{}", event.canonical_line().unwrap()).unwrap();
+                    index += 1;
+                }
+            }
+        }
+        writer.flush().unwrap();
+        let contract = Contract::parse(
+            include_str!("../../../contracts/telemetry-v1.toml")
+                .replace("recent = \"24h\"", "recent = \"0\""),
+        )
+        .unwrap();
+        let output = dir.path().join("auto.tfold");
+        let encoded = encode(&input, &contract, &output, &EncodeOptions::default()).unwrap();
+        assert_eq!(encoded.requested_layout, Layout::Auto);
+        assert_eq!(
+            encoded.selected_layout,
+            Layout::Separate,
+            "candidate sizes: {:?}",
+            encoded.candidate_archive_bytes
+        );
+        assert!(
+            encoded.candidate_archive_bytes["separate"]
+                < encoded.candidate_archive_bytes["unified"]
+        );
+        let inspected = Archive::open(output).unwrap().inspect();
+        assert_eq!(inspected.selected_layout, Layout::Separate);
     }
 
     fn archive_files(root: &Path) -> BTreeMap<String, Vec<u8>> {

@@ -13,7 +13,7 @@ use flate2::{Compression, write::GzEncoder};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tempfile::NamedTempFile;
-use tracefold_archive::{Archive, EncodeOptions, encode};
+use tracefold_archive::{Archive, EncodeOptions, Layout, encode};
 use tracefold_core::{
     Contract, OracleIndex, QuerySpec, ScalarValue,
     aggregate::measure_name,
@@ -75,7 +75,10 @@ pub struct BenchmarkRow {
     pub archive_hash: Option<String>,
     pub bucket_width_ns: Option<i64>,
     pub retention: Option<String>,
+    pub requested_layout: Option<String>,
     pub layout: Option<String>,
+    pub candidate_archive_bytes: Option<BTreeMap<String, u64>>,
+    pub archive_components: Option<BTreeMap<String, u64>>,
     pub baseline: String,
     pub codec: Option<String>,
     pub trial: u32,
@@ -607,7 +610,7 @@ fn benchmark_dataset(
         command,
         &host,
         dataset,
-        scenario,
+        scenario.clone(),
         seed,
         &source_hash,
         record_count,
@@ -616,32 +619,143 @@ fn benchmark_dataset(
         normalized_bytes,
         max_source_bytes,
         &contract,
-        "tracefold-separate-zstd3",
+        "tracefold-auto-zstd9",
         baselines.len() as u32,
         archive_bytes,
         elapsed,
     );
     row.archive_hash = Some(encoded.archive_hash);
-    row.layout = Some("separate".into());
-    row.codec = Some("zstd-3".into());
+    row.requested_layout = Some("auto".into());
+    row.layout = Some(layout_name(encoded.selected_layout).into());
+    row.candidate_archive_bytes = Some(encoded.candidate_archive_bytes);
+    row.archive_components = Some(
+        archive
+            .inspect()
+            .components
+            .into_iter()
+            .map(|(name, size)| (name, size.compressed_bytes))
+            .collect(),
+    );
+    row.codec = Some("zstd-9".into());
     row.query_batch_wall_ns = Some(query_elapsed);
     row.timing_mode = Some("single-process-warm".into());
     row.query_count = queries.len() as u64;
-    row.query_workload_hash = Some(query_workload_hash);
-    row.query_workload_generated_at = Some(query_workload_generated_at);
-    row.query_workload = Some(queries);
-    row.illegal_query_workload = Some(illegal_queries);
-    row.oracle_result_sha256 = Some(oracle_result_sha256);
+    row.query_workload_hash = Some(query_workload_hash.clone());
+    row.query_workload_generated_at = Some(query_workload_generated_at.clone());
+    row.query_workload = Some(queries.clone());
+    row.illegal_query_workload = Some(illegal_queries.clone());
+    row.oracle_result_sha256 = Some(oracle_result_sha256.clone());
     row.semantic_mismatch_count = mismatches;
     row.explicit_rejection_count = explicit_rejections;
     row.raw_recoverability = Some(retained as f64 / record_count as f64);
     row.spill_count = Some(encoded.spill_count);
-    row.success = mismatches == 0;
-    if mismatches > 0 {
-        row.failure_kind = Some("semantic_mismatch".into());
-        row.error = Some(format!("{mismatches} query results differed"));
+    row.success = mismatches == 0 && explicit_rejections == illegal_queries.len() as u64;
+    if !row.success {
+        row.failure_kind = Some(if mismatches > 0 {
+            "semantic_mismatch".into()
+        } else {
+            "contract_rejection".into()
+        });
+        row.error = Some(format!(
+            "{mismatches} query results differed; {explicit_rejections}/{} illegal queries rejected",
+            illegal_queries.len()
+        ));
     }
     rows.push(row);
+
+    let variants = [
+        ("tracefold-separate-zstd1", Layout::Separate, 1),
+        ("tracefold-separate-zstd3", Layout::Separate, 3),
+        ("tracefold-separate-zstd9", Layout::Separate, 9),
+        ("tracefold-unified-zstd3", Layout::Unified, 3),
+        ("tracefold-unified-zstd9", Layout::Unified, 9),
+    ];
+    for (variant_index, (baseline, layout, zstd_level)) in variants.into_iter().enumerate() {
+        let path = temp.path().join(format!("{baseline}.tfold"));
+        let variant_started = Instant::now();
+        let encoded = encode(
+            source,
+            &contract,
+            &path,
+            &EncodeOptions {
+                layout,
+                zstd_level,
+                git_commit: git_commit(),
+                ..EncodeOptions::default()
+            },
+        )?;
+        let encode_elapsed = variant_started.elapsed().as_nanos() as u64;
+        let archive_bytes = directory_size(&path)?;
+        let archive = Archive::open(&path)?;
+        let query_started = Instant::now();
+        let mut mismatches = 0_u64;
+        for (query, expected) in queries.iter().zip(&expected) {
+            mismatches += u64::from(archive.query(query)?.rows != expected.rows);
+        }
+        let query_elapsed = query_started.elapsed().as_nanos() as u64;
+        let explicit_rejections = illegal_queries
+            .iter()
+            .filter(|query| archive.query(query).is_err())
+            .count() as u64;
+        let retained = archive
+            .retained_events(tracefold_archive::RetainedClass::All)?
+            .len() as u64;
+        let mut variant = base_row(
+            &run_id,
+            &timestamp,
+            command,
+            &host,
+            dataset,
+            scenario.clone(),
+            seed,
+            &source_hash,
+            record_count,
+            source_bytes,
+            extracted_bytes,
+            normalized_bytes,
+            max_source_bytes,
+            &contract,
+            baseline,
+            baselines.len() as u32 + 1 + variant_index as u32,
+            archive_bytes,
+            encode_elapsed,
+        );
+        variant.archive_hash = Some(encoded.archive_hash);
+        variant.requested_layout = Some(layout_name(layout).into());
+        variant.layout = Some(layout_name(encoded.selected_layout).into());
+        variant.candidate_archive_bytes = Some(encoded.candidate_archive_bytes);
+        variant.archive_components = Some(
+            archive
+                .inspect()
+                .components
+                .into_iter()
+                .map(|(name, size)| (name, size.compressed_bytes))
+                .collect(),
+        );
+        variant.codec = Some(format!("zstd-{zstd_level}"));
+        variant.query_batch_wall_ns = Some(query_elapsed);
+        variant.timing_mode = Some("single-process-warm".into());
+        variant.query_count = queries.len() as u64;
+        variant.query_workload_hash = Some(query_workload_hash.clone());
+        variant.query_workload_generated_at = Some(query_workload_generated_at.clone());
+        variant.semantic_mismatch_count = mismatches;
+        variant.explicit_rejection_count = explicit_rejections;
+        variant.raw_recoverability = Some(retained as f64 / record_count as f64);
+        variant.spill_count = Some(encoded.spill_count);
+        variant.success = mismatches == 0 && explicit_rejections == illegal_queries.len() as u64;
+        if !variant.success {
+            variant.failure_kind = Some(if mismatches > 0 {
+                "semantic_mismatch".into()
+            } else {
+                "contract_rejection".into()
+            });
+            variant.error = Some(format!(
+                "{mismatches} query results differed; {explicit_rejections}/{} illegal queries rejected",
+                illegal_queries.len()
+            ));
+        }
+        rows.push(variant);
+    }
     Ok(rows)
 }
 
@@ -688,7 +802,10 @@ fn base_row(
         archive_hash: None,
         bucket_width_ns: contract.bucket_ns().ok(),
         retention: Some(contract.retention.recent.clone()),
+        requested_layout: None,
         layout: None,
+        candidate_archive_bytes: None,
+        archive_components: None,
         baseline: baseline.into(),
         codec: None,
         trial: 0,
@@ -748,7 +865,10 @@ fn failure_row(
         archive_hash: None,
         bucket_width_ns: None,
         retention: None,
+        requested_layout: None,
         layout: None,
+        candidate_archive_bytes: None,
+        archive_components: None,
         baseline: "none".into(),
         codec: None,
         trial: 0,
@@ -774,6 +894,14 @@ fn failure_row(
         success: false,
         failure_kind: Some(kind.into()),
         error: Some(error),
+    }
+}
+
+fn layout_name(layout: Layout) -> &'static str {
+    match layout {
+        Layout::Auto => "auto",
+        Layout::Separate => "separate",
+        Layout::Unified => "unified",
     }
 }
 

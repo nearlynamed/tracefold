@@ -71,6 +71,7 @@ struct NormalizeArgs {
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum LayoutArg {
+    Auto,
     Separate,
     Unified,
 }
@@ -83,13 +84,13 @@ struct EncodeArgs {
     contract: PathBuf,
     #[arg(long)]
     output: PathBuf,
-    #[arg(long, value_enum, default_value_t = LayoutArg::Separate)]
+    #[arg(long, value_enum, default_value_t = LayoutArg::Auto)]
     layout: LayoutArg,
     #[arg(long, default_value_t = 536_870_912)]
     aggregation_budget: u64,
     #[arg(long, default_value_t = 10_000_000)]
     cardinality_limit: usize,
-    #[arg(long, default_value_t = 3)]
+    #[arg(long, default_value_t = 9)]
     zstd_level: i32,
     #[arg(long)]
     force: bool,
@@ -323,6 +324,7 @@ fn run_encode(args: &EncodeArgs) -> anyhow::Result<()> {
         &EncodeOptions {
             force: args.force,
             layout: match args.layout {
+                LayoutArg::Auto => Layout::Auto,
                 LayoutArg::Separate => Layout::Separate,
                 LayoutArg::Unified => Layout::Unified,
             },

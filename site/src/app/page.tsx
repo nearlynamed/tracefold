@@ -31,7 +31,7 @@ export default async function HomePage() {
     <>
       <section className="hero shell" id="overview">
         <div className="hero-copy">
-          <p className="eyebrow">Executable systems research · v1</p>
+          <p className="eyebrow">Executable systems research</p>
           <h1>Keep the answers.<br />Fold the trace.</h1>
           <p className="lede">
             TraceFold tests a deliberately narrow proposition: telemetry archives can retain
@@ -124,7 +124,7 @@ export default async function HomePage() {
             <h3>Publication identity</h3>
             <dl className="metadata-list">
               <div><dt>Benchmark commit</dt><dd><code>{publication.benchmark_commit}</code></dd></div>
-              <div><dt>Publication commit</dt><dd><code>{publication.publication_commit}</code></dd></div>
+              <div><dt>Evidence snapshot</dt><dd><code>{publication.snapshot_id}</code></dd></div>
               <div><dt>Source cap</dt><dd>{summary.max_source_bytes.toLocaleString()} bytes</dd></div>
             </dl>
           </div>

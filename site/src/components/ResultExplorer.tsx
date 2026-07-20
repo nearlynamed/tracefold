@@ -8,7 +8,7 @@ type ResultExplorerProps = {
   datasets: string[];
 };
 
-const TRACEFOLD_BASELINE = "tracefold-separate-zstd3";
+const TRACEFOLD_BASELINE = "tracefold-auto-zstd9";
 
 const number = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
 

@@ -77,7 +77,7 @@ pub fn write_view(
             min_bucket = row.key.bucket_ns;
             previous_bucket = 0;
         }
-        encode_row(&mut current, &row, &mut previous_bucket)?;
+        encode_row(&mut current, &row, &mut previous_bucket, &schema.measures)?;
         max_bucket = row.key.bucket_ns;
         row_count += 1;
         if row_count >= TARGET_BLOCK_ROWS || current.len() >= TARGET_BLOCK_UNCOMPRESSED {
@@ -261,7 +261,11 @@ fn encode_row(
     output: &mut Vec<u8>,
     row: &EncodedRow,
     previous_bucket: &mut i64,
+    measures: &[Measure],
 ) -> Result<(), CodecError> {
+    if row.state.metrics.len() != measures.len() {
+        return Err(CodecError::Corrupt("metric count mismatch".into()));
+    }
     let delta = row
         .key
         .bucket_ns
@@ -278,15 +282,23 @@ fn encode_row(
         };
         put_uvarint(output, id);
     }
-    for metric in &row.state.metrics {
-        put_uvarint(output, metric.count);
-        put_uvarint(output, metric.present_count);
-        put_svarint(output, metric.sum);
-        put_optional_i64(output, metric.min);
-        put_optional_i64(output, metric.max);
-        put_uvarint(output, metric.histogram.len() as u64);
-        for value in &metric.histogram {
-            put_uvarint(output, *value);
+    for (measure, metric) in measures.iter().zip(&row.state.metrics) {
+        match measure.operation {
+            tracefold_core::MeasureOp::Count => put_uvarint(output, metric.count),
+            tracefold_core::MeasureOp::CountPresent => put_uvarint(output, metric.present_count),
+            tracefold_core::MeasureOp::Sum => {
+                put_optional_i64(output, (metric.present_count > 0).then_some(metric.sum))
+            }
+            tracefold_core::MeasureOp::Min => put_optional_i64(output, metric.min),
+            tracefold_core::MeasureOp::Max => put_optional_i64(output, metric.max),
+            tracefold_core::MeasureOp::Histogram => {
+                if metric.histogram.len() != measure.bounds.len() + 1 {
+                    return Err(CodecError::Corrupt("histogram length mismatch".into()));
+                }
+                for value in &metric.histogram {
+                    put_uvarint(output, *value);
+                }
+            }
         }
     }
     Ok(())
@@ -316,31 +328,50 @@ fn decode_row(
         .collect::<Result<Vec<_>, _>>()?;
     let mut metrics = Vec::with_capacity(measures.len());
     for measure in measures {
-        let count = get_uvarint(input)?;
-        let present_count = get_uvarint(input)?;
-        let sum = get_svarint(input)?;
-        let min = get_optional_i64(input)?;
-        let max = get_optional_i64(input)?;
-        let histogram_len = get_uvarint(input)? as usize;
-        let expected = if measure.operation == tracefold_core::MeasureOp::Histogram {
-            measure.bounds.len() + 1
-        } else {
-            0
+        let mut metric = tracefold_core::aggregate::MetricState {
+            count: 0,
+            present_count: 0,
+            sum: 0,
+            min: None,
+            max: None,
+            histogram: Vec::new(),
         };
-        if histogram_len != expected {
-            return Err(CodecError::Corrupt("histogram length mismatch".into()));
+        match measure.operation {
+            tracefold_core::MeasureOp::Count => metric.count = get_uvarint(input)?,
+            tracefold_core::MeasureOp::CountPresent => {
+                metric.present_count = get_uvarint(input)?;
+                metric.count = metric.present_count;
+            }
+            tracefold_core::MeasureOp::Sum => {
+                if let Some(sum) = get_optional_i64(input)? {
+                    metric.count = 1;
+                    metric.present_count = 1;
+                    metric.sum = sum;
+                }
+            }
+            tracefold_core::MeasureOp::Min => {
+                metric.min = get_optional_i64(input)?;
+                metric.count = u64::from(metric.min.is_some());
+                metric.present_count = metric.count;
+            }
+            tracefold_core::MeasureOp::Max => {
+                metric.max = get_optional_i64(input)?;
+                metric.count = u64::from(metric.max.is_some());
+                metric.present_count = metric.count;
+            }
+            tracefold_core::MeasureOp::Histogram => {
+                metric.histogram = (0..measure.bounds.len() + 1)
+                    .map(|_| get_uvarint(input))
+                    .collect::<Result<Vec<_>, _>>()?;
+                metric.present_count = metric
+                    .histogram
+                    .iter()
+                    .try_fold(0_u64, |sum, value| sum.checked_add(*value))
+                    .ok_or_else(|| CodecError::Corrupt("histogram count overflow".into()))?;
+                metric.count = metric.present_count;
+            }
         }
-        let histogram = (0..histogram_len)
-            .map(|_| get_uvarint(input))
-            .collect::<Result<Vec<_>, _>>()?;
-        metrics.push(tracefold_core::aggregate::MetricState {
-            count,
-            present_count,
-            sum,
-            min,
-            max,
-            histogram,
-        });
+        metrics.push(metric);
     }
     Ok(EncodedRow {
         key: CellKey {
@@ -495,5 +526,108 @@ mod tests {
         write_view(&path, 60, &schema, [row.clone()], 3).unwrap();
         let mut reader = ViewReader::open(&path).unwrap();
         assert_eq!(reader.rows(None, None).unwrap(), vec![row]);
+    }
+
+    #[test]
+    fn operation_specific_metrics_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("metrics.tfv");
+        let schema = ViewSchema {
+            dimensions: vec![],
+            measures: vec![
+                Measure {
+                    field: "*".into(),
+                    operation: MeasureOp::Count,
+                    bounds: vec![],
+                },
+                Measure {
+                    field: "x".into(),
+                    operation: MeasureOp::CountPresent,
+                    bounds: vec![],
+                },
+                Measure {
+                    field: "x".into(),
+                    operation: MeasureOp::Sum,
+                    bounds: vec![],
+                },
+                Measure {
+                    field: "x".into(),
+                    operation: MeasureOp::Min,
+                    bounds: vec![],
+                },
+                Measure {
+                    field: "x".into(),
+                    operation: MeasureOp::Max,
+                    bounds: vec![],
+                },
+                Measure {
+                    field: "x".into(),
+                    operation: MeasureOp::Histogram,
+                    bounds: vec![0, 10],
+                },
+            ],
+        };
+        let metrics = vec![
+            MetricState {
+                count: 7,
+                present_count: 0,
+                sum: 0,
+                min: None,
+                max: None,
+                histogram: vec![],
+            },
+            MetricState {
+                count: 3,
+                present_count: 3,
+                sum: 0,
+                min: None,
+                max: None,
+                histogram: vec![],
+            },
+            MetricState {
+                count: 1,
+                present_count: 1,
+                sum: -9,
+                min: None,
+                max: None,
+                histogram: vec![],
+            },
+            MetricState {
+                count: 1,
+                present_count: 1,
+                sum: 0,
+                min: Some(-4),
+                max: None,
+                histogram: vec![],
+            },
+            MetricState {
+                count: 1,
+                present_count: 1,
+                sum: 0,
+                min: None,
+                max: Some(12),
+                histogram: vec![],
+            },
+            MetricState {
+                count: 6,
+                present_count: 6,
+                sum: 0,
+                min: None,
+                max: None,
+                histogram: vec![1, 2, 3],
+            },
+        ];
+        let row = EncodedRow {
+            key: CellKey {
+                bucket_ns: 60,
+                dimensions: vec![],
+            },
+            state: CellState { metrics },
+        };
+        write_view(&path, 60, &schema, [row.clone()], 3).unwrap();
+        assert_eq!(
+            ViewReader::open(&path).unwrap().rows(None, None).unwrap(),
+            vec![row]
+        );
     }
 }

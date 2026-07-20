@@ -449,7 +449,7 @@ def build_baselines(
     template = next(
         row
         for row in templates
-        if row["baseline"] == "tracefold-separate-zstd3"
+        if row["baseline"] == "tracefold-auto-zstd9"
         and row.get("query_workload")
         and (dataset is None or row["dataset"] == dataset)
     )

@@ -167,9 +167,9 @@ def _write_markdown(
     lines = [
         "# TraceFold benchmark summary",
         "",
-        f"**Status:** {publication['status']}  ",
-        f"**By:** {publication['byline']}  ",
-        f"**Snapshot:** `{summary['snapshot_id']}`  ",
+        f"**Status:** {publication['status']}",
+        f"**By:** {publication['byline']}",
+        f"**Snapshot:** `{summary['snapshot_id']}`",
         f"**Attempts:** {summary['attempts']} ({summary['successful_attempts']} successful, {summary['failed_attempts']} failed)",
         "",
         "| Dataset | Baseline | Archive bytes (median) | Compression ratio | Encode time (ns) | Query batch (ns) |",

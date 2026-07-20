@@ -13,6 +13,10 @@ test("the complete research artifact is one navigable page", async ({ page, requ
   await expect(page.getByRole("heading", { name: "Data and provenance" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Reproduce the artifact" })).toBeVisible();
   await expect(page.locator(".paper")).toContainText("The principal saving is semantic");
+  await expect(page.locator(".paper-diagram")).toHaveCount(3);
+  await expect(page.getByRole("img", { name: /Retention timeline/ })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Encoding pipeline/ })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Query path/ })).toBeVisible();
   await expect(page.locator("body")).not.toContainText(/\bv2\b|previous findings|prior findings|updated findings/i);
   await expect(page.getByText("Evidence snapshot", { exact: true })).toBeVisible();
   await expect(page.locator("[data-nextjs-dialog]")).toHaveCount(0);

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">TraceFold retention contract</title>
+  <desc id="desc">A timeline showing that all errors and recent records remain exact while older successful records survive only through declared aggregate views.</desc>
+  <defs>
+    <pattern id="aggregate" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="18" height="18" fill="#dce5de"/>
+      <rect width="5" height="18" fill="#8ca697"/>
+    </pattern>
+    <style>
+      .sans{font-family:Inter,ui-sans-serif,system-ui,sans-serif}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+      .ink{fill:#15241c}.muted{fill:#667168}.small{font-size:17px}.label{font-size:19px;font-weight:700}.title{font-size:30px;font-weight:750;letter-spacing:-.5px}
+    </style>
+  </defs>
+  <rect x="1" y="1" width="1198" height="648" rx="18" fill="#f7f2e8" stroke="#c9c0ad" stroke-width="2"/>
+  <text x="62" y="62" class="sans title ink">What survives the retention cutoff?</text>
+  <text x="62" y="94" class="sans small muted">The aggregate layer covers the full history; exact raw records form two intentional tiers.</text>
+
+  <line x1="80" y1="146" x2="1120" y2="146" stroke="#8d968f" stroke-width="2"/>
+  <line x1="816" y1="126" x2="816" y2="536" stroke="#d64b2a" stroke-width="3" stroke-dasharray="8 8"/>
+  <text x="80" y="132" class="mono small muted">OLDER HISTORY</text>
+  <text x="838" y="132" class="mono small" fill="#a93620">NEWEST 24 HOURS</text>
+  <text x="816" y="566" text-anchor="middle" class="mono small" fill="#a93620">cutoff from max event timestamp</text>
+
+  <text x="80" y="205" class="sans label ink">Successful events</text>
+  <rect x="300" y="174" width="490" height="66" rx="9" fill="#ebe5d8" stroke="#b9b09e"/>
+  <path d="M326 190h48v34h-48zM396 190h48v34h-48zM466 190h48v34h-48zM536 190h48v34h-48zM606 190h48v34h-48zM676 190h48v34h-48z" fill="#d5cec0"/>
+  <path d="M320 184l438 46M758 184L320 230" stroke="#9c6f63" stroke-width="2" opacity=".75"/>
+  <text x="545" y="262" text-anchor="middle" class="sans small muted">old payloads are not reconstructable</text>
+  <rect x="842" y="174" width="250" height="66" rx="9" fill="#fffaf1" stroke="#284f3c" stroke-width="2"/>
+  <path d="M866 190h45v34h-45zM926 190h45v34h-45zM986 190h45v34h-45zM1046 190h22v34h-22z" fill="#dce5de" stroke="#688171"/>
+  <text x="967" y="262" text-anchor="middle" class="sans small" fill="#284f3c">every recent event stays exact</text>
+
+  <text x="80" y="345" class="sans label ink">Error events</text>
+  <line x1="300" y1="324" x2="1092" y2="324" stroke="#d5cec0" stroke-width="5"/>
+  <g fill="#d64b2a" stroke="#8f2c18" stroke-width="2">
+    <circle cx="336" cy="324" r="11"/><circle cx="458" cy="324" r="11"/><circle cx="611" cy="324" r="11"/>
+    <circle cx="754" cy="324" r="11"/><circle cx="887" cy="324" r="11"/><circle cx="1045" cy="324" r="11"/>
+  </g>
+  <text x="585" y="362" text-anchor="middle" class="sans small" fill="#a93620">errors remain exact across the archive</text>
+
+  <text x="80" y="444" class="sans label ink">Declared aggregates</text>
+  <g stroke="#688171">
+    <rect x="300" y="408" width="120" height="74" rx="7" fill="url(#aggregate)"/>
+    <rect x="428" y="408" width="120" height="74" rx="7" fill="url(#aggregate)"/>
+    <rect x="556" y="408" width="120" height="74" rx="7" fill="url(#aggregate)"/>
+    <rect x="684" y="408" width="118" height="74" rx="7" fill="url(#aggregate)"/>
+    <rect x="837" y="408" width="118" height="74" rx="7" fill="url(#aggregate)"/>
+    <rect x="963" y="408" width="129" height="74" rx="7" fill="url(#aggregate)"/>
+  </g>
+  <text x="681" y="512" text-anchor="middle" class="sans small" fill="#284f3c">every event contributes to exact, time-bucketed answers</text>
+</svg>

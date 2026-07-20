@@ -44,6 +44,10 @@ The default manifest retains all canonical events in the newest 24 hours and all
 
 This retained subset is never presented as complete historical raw data. The events command reports the retention class and cutoff, and old successful payload requests are unavailable by construction. In the published TraceFold rows, raw recoverability ranges from a small retained fraction to the fraction determined by the corpus's recent and error distribution; the corpus table below reports it directly.
 
+![Retention timeline: errors remain exact across the archive, recent events remain exact, and every event contributes to declared aggregate views.](./site-data/diagrams/retention-contract.svg)
+
+*Figure 1. The raw-retention policy and aggregate coverage are separate layers. The cutoff changes raw recoverability, not the time span covered by legal aggregate queries.*
+
 ### 2.3 Preserved queries
 
 A contract manifest declares named families, each with one to six dimensions, integer measures, fixed histogram bounds where applicable, a time-bucket width, and a retention policy. At runtime a legal aggregate query may choose a bucket-aligned half-open interval, equality or `IN` filters on declared dimensions, any grouping subset of those dimensions, and any subset of declared measures. The bucket remains an implicit grouping key, and output is sorted deterministically.
@@ -66,6 +70,10 @@ The second pass classifies retained rows and updates aggregate cells for older a
 
 The archive is assembled in a sibling temporary directory and published by rename only after verification succeeds. Repeated encodes of the same canonical input and contract are byte-identical. Existing output requires explicit replacement, and failed encodes do not leave a partially published archive.
 
+![Encoding pipeline: two deterministic passes construct and verify complete separate and unified candidates before the smaller archive is published.](./site-data/diagrams/encoding-pipeline.svg)
+
+*Figure 2. Automatic layout selection compares finalized, verified archives rather than estimating the size of isolated view files.*
+
 ### 3.2 Physical representation
 
 An archive contains metadata, the exact contract, checksums, compressed dimension dictionaries, one or more `.tfv` aggregate views, and binary recent/error tiers. Each view begins with a guarded header and schema, followed by a fixed block index and independently Zstandard-compressed data blocks. Rows are globally ordered by bucket and dimension IDs. Buckets are delta encoded; IDs and counts use variable-length integers; signed measures use ZigZag encoding; and every measure stores only the state needed by its declared operation.
@@ -79,6 +87,10 @@ Blocks end at a row or uncompressed-byte threshold. Their indexes record bucket 
 The reader first matches a request to an embedded family and rejects it if any field, measure, predicate, grouping, or interval lies outside the contract. It then uses the block index to select bucket ranges, decodes candidate rows, applies dictionary filters, and regroups only when the requested grouping is a subset of the stored view. The result serializer uses stable ordering so oracle comparisons reduce to byte equality rather than approximate numeric comparison.
 
 The verifier checks every declared archive path, byte length, checksum, view bound, dictionary reference, and ordering invariant. Tests also cover truncation and tampering. Forced-spill and no-spill encodes are compared for byte identity and answer equality, exercising a path that small default runs would otherwise miss.
+
+![Query path: the embedded contract admits or rejects a query before legal requests use the block index, decoding, filtering, and regrouping.](./site-data/diagrams/query-path.svg)
+
+*Figure 3. Query execution has a hard admission boundary: accepted requests return exact, stably ordered rows; unavailable requests fail explicitly.*
 
 ## 4. Research questions
 

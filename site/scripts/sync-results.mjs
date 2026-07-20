@@ -58,6 +58,17 @@ for (const artifact of publication.raw_results ?? []) {
   }
 }
 
+if (!Array.isArray(summary.diagrams) || summary.diagrams.length < 3) {
+  throw new Error("the technical report must publish its explanatory diagrams");
+}
+for (const diagram of summary.diagrams) {
+  const relativePath = `diagrams/${diagram}`;
+  if (!paper.includes(`./site-data/${relativePath}`)) {
+    throw new Error(`paper does not reference ${relativePath}`);
+  }
+  await readFile(path.join(source, relativePath));
+}
+
 await rm(destination, { recursive: true, force: true });
 await mkdir(destination, { recursive: true });
 await cp(source, destination, { recursive: true });

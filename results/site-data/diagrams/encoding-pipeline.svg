@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">TraceFold deterministic encoding pipeline</title>
+  <desc id="desc">Canonical events pass through validation and dictionary discovery, aggregation and retention classification, two complete layout candidates, verification, and a byte-size comparison before publication.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0 0L9 3 0 6z" fill="#667168"/></marker>
+    <style>
+      .sans{font-family:Inter,ui-sans-serif,system-ui,sans-serif}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+      .ink{fill:#15241c}.muted{fill:#667168}.title{font-size:30px;font-weight:750;letter-spacing:-.5px}.head{font-size:20px;font-weight:750}.small{font-size:16px}.step{font-size:14px;font-weight:700;letter-spacing:1.3px}
+    </style>
+  </defs>
+  <rect x="1" y="1" width="1198" height="648" rx="18" fill="#f7f2e8" stroke="#c9c0ad" stroke-width="2"/>
+  <text x="62" y="62" class="sans title ink">From canonical events to one verified archive</text>
+  <text x="62" y="94" class="sans small muted">Both layout candidates are complete archives. Selection uses their final apparent bytes.</text>
+
+  <g fill="none" stroke="#667168" stroke-width="2.5" marker-end="url(#arrow)">
+    <path d="M222 300H276"/><path d="M466 300H520"/><path d="M710 300H754"/>
+    <path d="M936 220H982Q1000 220 1000 240V272"/><path d="M936 405H982Q1000 405 1000 385V347"/>
+    <path d="M1074 310H1124"/>
+  </g>
+
+  <rect x="54" y="233" width="168" height="134" rx="12" fill="#15241c"/>
+  <text x="74" y="262" class="mono step" fill="#ef8a70">INPUT</text>
+  <text x="74" y="302" class="sans head" fill="#f7f2e8">Canonical</text>
+  <text x="74" y="327" class="sans head" fill="#f7f2e8">JSONL</text>
+  <text x="74" y="350" class="mono small" fill="#b7c2ba">strict events</text>
+
+  <rect x="276" y="196" width="190" height="208" rx="12" fill="#fffaf1" stroke="#9fa79f" stroke-width="2"/>
+  <text x="296" y="226" class="mono step" fill="#a93620">PASS 1</text>
+  <text x="296" y="266" class="sans head ink">Validate + discover</text>
+  <text x="296" y="302" class="sans small muted">event IDs</text>
+  <text x="296" y="328" class="sans small muted">timestamp bounds</text>
+  <text x="296" y="354" class="sans small muted">sorted dictionaries</text>
+  <text x="296" y="380" class="sans small muted">canonical input hash</text>
+
+  <rect x="520" y="180" width="190" height="240" rx="12" fill="#fffaf1" stroke="#9fa79f" stroke-width="2"/>
+  <text x="540" y="210" class="mono step" fill="#a93620">PASS 2</text>
+  <text x="540" y="250" class="sans head ink">Classify + fold</text>
+  <text x="540" y="286" class="sans small muted">recent raw tier</text>
+  <text x="540" y="312" class="sans small muted">permanent errors</text>
+  <text x="540" y="338" class="sans small muted">aggregate cells</text>
+  <text x="540" y="364" class="sans small muted">bounded spill runs</text>
+  <text x="540" y="390" class="sans small muted">deterministic merge</text>
+
+  <text x="754" y="145" class="mono step" fill="#284f3c">AUTO PLANNER</text>
+  <rect x="754" y="165" width="182" height="112" rx="12" fill="#e4ece6" stroke="#688171" stroke-width="2"/>
+  <text x="774" y="199" class="sans head ink">Separate</text>
+  <text x="774" y="228" class="sans small muted">one view per family</text>
+  <text x="774" y="252" class="mono small" fill="#284f3c">complete + verified</text>
+  <rect x="754" y="350" width="182" height="112" rx="12" fill="#e4ece6" stroke="#688171" stroke-width="2"/>
+  <text x="774" y="384" class="sans head ink">Unified</text>
+  <text x="774" y="413" class="sans small muted">shared superset view</text>
+  <text x="774" y="437" class="mono small" fill="#284f3c">complete + verified</text>
+
+  <rect x="982" y="258" width="92" height="104" rx="46" fill="#d64b2a" stroke="#8f2c18" stroke-width="2"/>
+  <text x="1028" y="301" text-anchor="middle" class="mono step" fill="#fffaf1">FINAL</text>
+  <text x="1028" y="324" text-anchor="middle" class="mono step" fill="#fffaf1">BYTES</text>
+  <text x="1028" y="347" text-anchor="middle" class="mono small" fill="#fffaf1">min()</text>
+
+  <rect x="1124" y="246" width="56" height="128" rx="8" fill="#284f3c"/>
+  <path d="M1138 265h28v8h-28zM1138 281h28v8h-28zM1138 297h20v8h-20zM1138 324h28v34h-28z" fill="#dce5de"/>
+  <text x="1152" y="400" text-anchor="middle" class="mono step" fill="#284f3c">PUBLISH</text>
+
+  <rect x="276" y="515" width="798" height="70" rx="10" fill="#ebe5d8" stroke="#c9c0ad"/>
+  <text x="300" y="544" class="mono step" fill="#667168">AT EVERY STAGE</text>
+  <text x="300" y="570" class="sans small ink">checked arithmetic · stable ordering · BLAKE3 blocks · manifest checksums · atomic rename</text>
+</svg>

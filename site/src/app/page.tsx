@@ -102,6 +102,17 @@ export default async function HomePage() {
               h1: ({ children }) => <h2 className="paper-title" id="paper-title">{children}</h2>,
               h2: ({ children }) => <h3>{children}</h3>,
               h3: ({ children }) => <h4>{children}</h4>,
+              img: ({ src, alt }) => {
+                if (typeof src !== "string") return null;
+                const diagramSource = src.startsWith("./site-data/")
+                  ? src.replace("./site-data/", "/generated/")
+                  : src;
+                return (
+                  <span className="paper-diagram">
+                    <Image src={diagramSource} alt={alt ?? ""} width={1200} height={650} />
+                  </span>
+                );
+              },
             }}
           >
             {paper}

@@ -24,10 +24,23 @@ PRIMARY_BASELINES = {
     "tracefold-auto-zstd9",
 }
 
+DIAGRAM_SOURCE = Path(__file__).with_name("diagrams")
+
 
 def _stable_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+
+
+def _copy_diagrams(output: Path) -> list[str]:
+    target = output / "site-data" / "diagrams"
+    target.mkdir(parents=True, exist_ok=True)
+    diagrams = sorted(DIAGRAM_SOURCE.glob("*.svg"))
+    if not diagrams:
+        raise ValueError("the report package contains no explanatory diagrams")
+    for diagram in diagrams:
+        shutil.copyfile(diagram, target / diagram.name)
+    return [diagram.name for diagram in diagrams]
 
 
 def build(loaded: LoadedRows, output: Path) -> dict[str, Any]:
@@ -71,6 +84,7 @@ def build(loaded: LoadedRows, output: Path) -> dict[str, Any]:
             }
         )
     charts = generate_all(rows, output)
+    diagrams = _copy_diagrams(output)
     failures = [
         {
             "dataset": row["dataset"],
@@ -108,6 +122,7 @@ def build(loaded: LoadedRows, output: Path) -> dict[str, Any]:
         "table": table,
         "failures": failures,
         "charts": charts,
+        "diagrams": diagrams,
     }
     site_data = output / "site-data"
     _stable_json(site_data / "summary.json", summary)

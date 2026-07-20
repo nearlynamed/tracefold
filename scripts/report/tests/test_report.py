@@ -54,6 +54,13 @@ class ReportTests(unittest.TestCase):
             self.assertIn("## 2. Semantic contract", paper)
             self.assertIn("## 8. Threats to validity", paper)
             self.assertIn("## 11. Reproducibility and provenance", paper)
+            self.assertEqual(paper.count("./site-data/diagrams/"), 3)
+            self.assertEqual(
+                summary["diagrams"],
+                ["encoding-pipeline.svg", "query-path.svg", "retention-contract.svg"],
+            )
+            for diagram in summary["diagrams"]:
+                self.assertTrue((output / "site-data" / "diagrams" / diagram).exists())
 
     def test_python_baseline_enforces_contract_boundaries(self) -> None:
         contract = {

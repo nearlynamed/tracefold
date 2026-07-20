@@ -44,7 +44,7 @@ export function ResultExplorer({ rows, datasets }: ResultExplorerProps) {
       </div>
 
       <div className="result-legend" aria-label="Result chart legend">
-        <span><i className="legend-swatch tracefold-swatch" aria-hidden="true" />TraceFold <b>ours</b></span>
+        <span><i className="legend-swatch tracefold-swatch" aria-hidden="true" />TraceFold</span>
         <span><i className="legend-swatch baseline-swatch" aria-hidden="true" />Comparison baselines</span>
       </div>
 
@@ -59,7 +59,7 @@ export function ResultExplorer({ rows, datasets }: ResultExplorerProps) {
                 key={`${row.dataset}-${row.baseline}`}
               >
                 <span className="bar-label">
-                  {isTraceFold ? <>TraceFold <span className="ours-badge">ours</span></> : row.baseline}
+                  {isTraceFold ? "TraceFold" : row.baseline}
                 </span>
                 <div className="bar-track">
                   <div
@@ -94,7 +94,7 @@ export function ResultExplorer({ rows, datasets }: ResultExplorerProps) {
                     key={`${row.dataset}-${row.baseline}`}
                   >
                     <th scope="row">
-                      {isTraceFold ? <>TraceFold <span className="ours-badge">ours</span></> : row.baseline}
+                      {isTraceFold ? "TraceFold" : row.baseline}
                     </th>
                     <td>{row.attempts}</td>
                     <td>{display(row.compression_ratio_median, "×")}</td>

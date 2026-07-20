@@ -28,9 +28,9 @@ const rows = [
 describe("ResultExplorer", () => {
   it("switches corpora and makes TraceFold visibly distinct", () => {
     const { container } = render(<ResultExplorer rows={rows} datasets={["alpha", "beta"]} />);
-    expect(screen.getByLabelText("Result chart legend")).toHaveTextContent("TraceFold ours");
+    expect(screen.getByLabelText("Result chart legend")).toHaveTextContent("TraceFold");
     expect(container.querySelectorAll(".is-tracefold")).toHaveLength(2);
-    expect(screen.getAllByText("ours")).toHaveLength(3);
+    expect(screen.queryByText("ours")).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Corpus"), { target: { value: "beta" } });
     expect(screen.getAllByText("gzip")).toHaveLength(2);
     expect(container.querySelectorAll(".is-tracefold")).toHaveLength(0);

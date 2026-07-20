@@ -24,7 +24,7 @@ def _is_tracefold(row: dict[str, Any]) -> bool:
 
 
 def _baseline_label(row: dict[str, Any]) -> str:
-    return "TraceFold · ours" if _is_tracefold(row) else str(row["baseline"])
+    return "TraceFold" if _is_tracefold(row) else str(row["baseline"])
 
 
 def _finish(fig: plt.Figure, path: Path) -> None:
@@ -77,7 +77,7 @@ def bars(rows: list[dict[str, Any]], path: Path, title: str, field: str) -> None
                     facecolor=TRACEFOLD_COLOR,
                     edgecolor=TRACEFOLD_EDGE,
                     hatch="///",
-                    label="TraceFold · ours",
+                    label="TraceFold",
                 ),
                 Patch(facecolor=BASELINE_COLOR, label="Comparison baselines"),
             ],
@@ -113,7 +113,7 @@ def scatter(rows: list[dict[str, Any]], path: Path) -> None:
         )
         axis.annotate(
             (
-                f"TraceFold · ours ({row['dataset']})"
+                f"TraceFold ({row['dataset']})"
                 if tracefold
                 else _baseline_label(row)
             ),
@@ -141,7 +141,7 @@ def scatter(rows: list[dict[str, Any]], path: Path) -> None:
                     markerfacecolor=TRACEFOLD_COLOR,
                     markeredgecolor=TRACEFOLD_EDGE,
                     markersize=14,
-                    label="TraceFold · ours",
+                    label="TraceFold",
                 ),
                 Line2D(
                     [0],

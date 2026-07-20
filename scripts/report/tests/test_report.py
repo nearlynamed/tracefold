@@ -78,7 +78,7 @@ class ReportTests(unittest.TestCase):
         illegal = dict(legal, group_by=["host"])
         self.assertFalse(_query_is_legal(illegal, contract))
 
-    def test_charts_mark_tracefold_as_ours(self) -> None:
+    def test_charts_mark_tracefold_distinctly(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             chart = Path(directory) / "chart.svg"
             bars(
@@ -101,7 +101,8 @@ class ReportTests(unittest.TestCase):
                 "archive_bytes",
             )
             svg = chart.read_text()
-            self.assertIn("TraceFold · ours", svg)
+            self.assertIn("TraceFold", svg)
+            self.assertNotIn("ours", svg.lower())
             self.assertIn("#d64b2a", svg)
 
     def test_report_rejects_mixed_implementation_commits(self) -> None:

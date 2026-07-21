@@ -38,7 +38,8 @@
   </g>
   <text x="585" y="362" text-anchor="middle" class="sans small" fill="#a93620">errors remain exact across the archive</text>
 
-  <text x="80" y="444" class="sans label ink">Declared aggregates</text>
+  <text x="80" y="434" class="sans label ink">Declared</text>
+  <text x="80" y="458" class="sans label ink">aggregates</text>
   <g stroke="#688171">
     <rect x="300" y="408" width="120" height="74" rx="7" fill="url(#aggregate)"/>
     <rect x="428" y="408" width="120" height="74" rx="7" fill="url(#aggregate)"/>

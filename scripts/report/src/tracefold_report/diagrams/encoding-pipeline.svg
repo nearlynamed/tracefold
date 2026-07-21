@@ -14,7 +14,7 @@
 
   <g fill="none" stroke="#667168" stroke-width="2.5" marker-end="url(#arrow)">
     <path d="M222 300H276"/><path d="M466 300H520"/><path d="M710 300H754"/>
-    <path d="M936 220H982Q1000 220 1000 240V272"/><path d="M936 405H982Q1000 405 1000 385V347"/>
+    <path d="M936 228H982Q1000 228 1000 248V272"/><path d="M936 412H982Q1000 412 1000 392V347"/>
     <path d="M1074 310H1124"/>
   </g>
 
@@ -24,32 +24,37 @@
   <text x="74" y="327" class="sans head" fill="#f7f2e8">JSONL</text>
   <text x="74" y="350" class="mono small" fill="#b7c2ba">strict events</text>
 
-  <rect x="276" y="196" width="190" height="208" rx="12" fill="#fffaf1" stroke="#9fa79f" stroke-width="2"/>
-  <text x="296" y="226" class="mono step" fill="#a93620">PASS 1</text>
-  <text x="296" y="266" class="sans head ink">Validate + discover</text>
-  <text x="296" y="302" class="sans small muted">event IDs</text>
-  <text x="296" y="328" class="sans small muted">timestamp bounds</text>
-  <text x="296" y="354" class="sans small muted">sorted dictionaries</text>
-  <text x="296" y="380" class="sans small muted">canonical input hash</text>
+  <rect x="276" y="170" width="190" height="260" rx="12" fill="#fffaf1" stroke="#9fa79f" stroke-width="2"/>
+  <text x="296" y="202" class="mono step" fill="#a93620">PASS 1</text>
+  <text x="296" y="240" class="sans head ink">Validate +</text>
+  <text x="296" y="265" class="sans head ink">discover</text>
+  <text x="296" y="300" class="sans small muted">event IDs</text>
+  <text x="296" y="326" class="sans small muted">timestamp bounds</text>
+  <text x="296" y="352" class="sans small muted">sorted dictionaries</text>
+  <text x="296" y="378" class="sans small muted">input hash</text>
 
-  <rect x="520" y="180" width="190" height="240" rx="12" fill="#fffaf1" stroke="#9fa79f" stroke-width="2"/>
-  <text x="540" y="210" class="mono step" fill="#a93620">PASS 2</text>
-  <text x="540" y="250" class="sans head ink">Classify + fold</text>
-  <text x="540" y="286" class="sans small muted">recent raw tier</text>
-  <text x="540" y="312" class="sans small muted">permanent errors</text>
-  <text x="540" y="338" class="sans small muted">aggregate cells</text>
-  <text x="540" y="364" class="sans small muted">bounded spill runs</text>
-  <text x="540" y="390" class="sans small muted">deterministic merge</text>
+  <rect x="520" y="170" width="190" height="260" rx="12" fill="#fffaf1" stroke="#9fa79f" stroke-width="2"/>
+  <text x="540" y="202" class="mono step" fill="#a93620">PASS 2</text>
+  <text x="540" y="242" class="sans head ink">Classify + fold</text>
+  <text x="540" y="278" class="sans small muted">recent raw tier</text>
+  <text x="540" y="304" class="sans small muted">permanent errors</text>
+  <text x="540" y="330" class="sans small muted">aggregate cells</text>
+  <text x="540" y="356" class="sans small muted">bounded spill runs</text>
+  <text x="540" y="382" class="sans small muted">deterministic merge</text>
 
-  <text x="754" y="145" class="mono step" fill="#284f3c">AUTO PLANNER</text>
-  <rect x="754" y="165" width="182" height="112" rx="12" fill="#e4ece6" stroke="#688171" stroke-width="2"/>
-  <text x="774" y="199" class="sans head ink">Separate</text>
-  <text x="774" y="228" class="sans small muted">one view per family</text>
-  <text x="774" y="252" class="mono small" fill="#284f3c">complete + verified</text>
-  <rect x="754" y="350" width="182" height="112" rx="12" fill="#e4ece6" stroke="#688171" stroke-width="2"/>
-  <text x="774" y="384" class="sans head ink">Unified</text>
-  <text x="774" y="413" class="sans small muted">shared superset view</text>
-  <text x="774" y="437" class="mono small" fill="#284f3c">complete + verified</text>
+  <text x="754" y="136" class="mono step" fill="#284f3c">AUTO PLANNER</text>
+  <rect x="754" y="154" width="182" height="148" rx="12" fill="#e4ece6" stroke="#688171" stroke-width="2"/>
+  <text x="774" y="188" class="sans head ink">Separate</text>
+  <text x="774" y="218" class="sans small muted">one view per</text>
+  <text x="774" y="241" class="sans small muted">family</text>
+  <text x="774" y="270" class="mono" font-size="14" fill="#284f3c">complete</text>
+  <text x="774" y="289" class="mono" font-size="14" fill="#284f3c">+ verified</text>
+  <rect x="754" y="338" width="182" height="148" rx="12" fill="#e4ece6" stroke="#688171" stroke-width="2"/>
+  <text x="774" y="372" class="sans head ink">Unified</text>
+  <text x="774" y="402" class="sans small muted">shared superset</text>
+  <text x="774" y="425" class="sans small muted">view</text>
+  <text x="774" y="454" class="mono" font-size="14" fill="#284f3c">complete</text>
+  <text x="774" y="473" class="mono" font-size="14" fill="#284f3c">+ verified</text>
 
   <rect x="982" y="258" width="92" height="104" rx="46" fill="#d64b2a" stroke="#8f2c18" stroke-width="2"/>
   <text x="1028" y="301" text-anchor="middle" class="mono step" fill="#fffaf1">FINAL</text>
